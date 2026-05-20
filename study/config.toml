@@ -1,0 +1,98 @@
+# Database settings
+SQLALCHEMY_DATABASE_URI = 'sqlite:///study.db'
+
+# Application Settings
+TITLE = 'Study'
+ADMIN_PASSWORD = 'admin'
+USE_BREADCRUMBS = true
+PORT = 5000
+APPLICATION_ROOT = ''
+
+# Session Settings
+RETRIEVE_SESSIONS = true
+ALLOW_RETAKES = true
+
+# Completion Settings
+GENERATE_COMPLETION_CODE = true
+COMPLETION_CODE_MESSAGE = "Your completion code is:"
+
+# External ID Settings
+EXTERNAL_ID_LABEL = "Participant ID"
+EXTERNAL_ID_PROMPT = "Please enter your participant ID from the recruitment platform."
+
+# Conditions - participants will be randomly assigned
+CONDITIONS = [
+    {label='Condition 1', enabled=true},
+    {label='Condition 2', enabled=true},
+    {label='Condition 3', enabled=true}
+]
+
+# Page List - defines the experiment flow
+PAGE_LIST = [
+    {name='Consent', path='consent'},
+    {name='External ID', path='external_id'},
+    {name='Demographics', path='questionnaire/demographics'},
+    {name='Instructions', path='instructions/introduction'},
+    # Between participants
+    # {conditional_routing=[
+    #     {condition=1, page_list=[
+    #         {name='Condition 1 Instructions', path='instructions/condition1'},
+    #         {name='Condition 1 Task', path='task/condition1'},
+    #         {name='Condition 1 Questionnaire', path='questionnaire/condition1'},
+    #     ]},
+    #     {condition=2, page_list=[
+    #         {name='Condition 2 Instructions', path='instructions/condition2'},
+    #         {name='Condition 2 Task', path='task/condition2'},
+    #         {name='Condition 2 Questionnaire', path='questionnaire/condition2'},
+    #     ]},
+    #     {condition=3, page_list=[
+    #         {name='Condition 3 Instructions', path='instructions/condition3'},
+    #         {name='Condition 3 Task', path='task/condition3'},
+    #         {name='Condition 3 Questionnaire', path='questionnaire/condition3'},
+    #     ]},
+    # ]},
+    # Within participants
+    {conditional_routing=[
+        {condition=1, page_list=[
+            {name='Condition 1 Instructions', path='instructions/condition1'},
+            {name='Condition 1 Task', path='task/condition1'},
+            {name='Condition 1 Questionnaire', path='questionnaire/condition1'},
+
+            {name='Condition 2 Instructions', path='instructions/condition2'},
+            {name='Condition 2 Task', path='task/condition2'},
+            {name='Condition 2 Questionnaire', path='questionnaire/condition2'},
+
+            {name='Condition 3 Instructions', path='instructions/condition3'},
+            {name='Condition 3 Task', path='task/condition3'},
+            {name='Condition 3 Questionnaire', path='questionnaire/condition3'},
+        ]},
+        {condition=2, page_list=[
+            {name='Condition 2 Instructions', path='instructions/condition2'},
+            {name='Condition 2 Task', path='task/condition2'},
+            {name='Condition 2 Questionnaire', path='questionnaire/condition2'},
+
+            {name='Condition 3 Instructions', path='instructions/condition3'},
+            {name='Condition 3 Task', path='task/condition3'},
+            {name='Condition 3 Questionnaire', path='questionnaire/condition3'},
+
+            {name='Condition 1 Instructions', path='instructions/condition1'},
+            {name='Condition 1 Task', path='task/condition1'},
+            {name='Condition 1 Questionnaire', path='questionnaire/condition1'},
+        ]},
+        {condition=3, page_list=[
+            {name='Condition 3 Instructions', path='instructions/condition3'},
+            {name='Condition 3 Task', path='task/condition3'},
+            {name='Condition 3 Questionnaire', path='questionnaire/condition3'},
+
+            {name='Condition 1 Instructions', path='instructions/condition1'},
+            {name='Condition 1 Task', path='task/condition1'},
+            {name='Condition 1 Questionnaire', path='questionnaire/condition1'},
+
+            {name='Condition 2 Instructions', path='instructions/condition2'},
+            {name='Condition 2 Task', path='task/condition2'},
+            {name='Condition 2 Questionnaire', path='questionnaire/condition2'},
+        ]},
+    ]},
+    {name='Final Questionnaire', path='questionnaire/final'},
+    {name='End', path='end'},
+]

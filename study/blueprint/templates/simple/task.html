@@ -1,0 +1,24 @@
+<head>
+    <script src="{{ url_for('blueprint.static', filename='p5.min.js') }}"></script>
+    <script src="{{ url_for('blueprint.static', filename='main.js') }}"></script>
+</head>
+<body>
+    <h1>{{condition}} Task</h1>
+    
+    <p>This is a simple custom page. You control the navigation.</p>
+    
+    <p>Use this for tasks, interactive content, or any page where you need
+    full control over when participants can proceed.</p>
+    
+    <!-- Make global variables available in the p5 canvas by declaring them const here -->
+    <script id="global" type="text/javascript">
+        const condition = "{{condition}}";
+    </script>
+
+    <div id="study-container">
+        <!-- p5.js will inject the canvas here -->
+    </div>
+    
+    <!-- Navigation: link to advance to next page -->
+    <p><a href="/redirect_next_page" class="btn btn-primary">Continue</a></p>
+</body>

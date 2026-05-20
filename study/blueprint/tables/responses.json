@@ -1,0 +1,20 @@
+{
+    "columns": {
+        "trial_number": {
+            "type": "integer",
+            "default": 0
+        },
+        "stimulus": {
+            "type": "string"
+        },
+        "response": {
+            "type": "string"
+        },
+        "reaction_time": {
+            "type": "float"
+        },
+        "correct": {
+            "type": "boolean"
+        }
+    }
+}

@@ -1,0 +1,38 @@
+{
+    "title": "Demographics",
+    "instructions": "Please answer the following questions about yourself.",
+    "questions": [
+        {
+            "questiontype": "num_field",
+            "instructions": "What is your age?",
+            "id": "age",
+            "min": 18,
+            "max": 120
+        },
+        {
+            "questiontype": "radiolist",
+            "instructions": "What is your gender?",
+            "id": "gender",
+            "labels": [
+                "Male",
+                "Female",
+                "Non-binary",
+                "Prefer not to say"
+            ]
+        },
+        {
+            "questiontype": "drop_down",
+            "instructions": "What is the highest level of education you have completed?",
+            "id": "education",
+            "items": [
+                "Less than high school",
+                "High school diploma or equivalent",
+                "Some college",
+                "Bachelor's degree",
+                "Master's degree",
+                "Doctoral degree",
+                "Professional degree"
+            ]
+        }
+    ]
+}

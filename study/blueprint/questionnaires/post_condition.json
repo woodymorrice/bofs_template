@@ -1,0 +1,12 @@
+{
+    "title": "{{condition}} Questionnaire",
+    "instructions": "Please answer the following questions.",
+    "questions": [
+        {
+            "questiontype": "field",
+            "instructions": "Please provide any additional comments.",
+            "id": "comments",
+            "required": false
+        }
+    ]
+}
