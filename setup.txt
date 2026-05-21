@@ -4,3 +4,5 @@ python -m venv env
 Activate the virtual environment:
 source env/bin/activate
 
+Install BOFS
+pip install bride-of-frankensystem-dev

@@ -30,8 +30,8 @@ def get_condition3():
     return task("Condition 3")
 
 
-def task(condition: str):
+def task(condition_name: str):
     return render_template(
         "simple/task.html",
-        condition=condition,
+        condition_name=condition_name,
     )

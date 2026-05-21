@@ -1,24 +1,50 @@
 <head>
     <script src="{{ url_for('blueprint.static', filename='p5.min.js') }}"></script>
     <script src="{{ url_for('blueprint.static', filename='main.js') }}"></script>
+
+    <!-- This style makes the p5 canvas fill the entire page. -->
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        #study-container {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
 </head>
 <body>
-    <h1>{{condition}} Task</h1>
+    <!-- Plain html can be included here to show some text above the task 
+     window. -->
+    <!-- <h1>{{condition_name}} Task</h1>
     
     <p>This is a simple custom page. You control the navigation.</p>
     
     <p>Use this for tasks, interactive content, or any page where you need
-    full control over when participants can proceed.</p>
+    full control over when participants can proceed.</p> -->
     
-    <!-- Make global variables available in the p5 canvas by declaring them const here -->
-    <script id="global" type="text/javascript">
-        const condition = "{{condition}}";
+    <!-- This script warns participants if they try to leave the page before
+     finishing the task. -->
+    <script>
+        let finished = false;
+        window.addEventListener("beforeunload", function (e) {
+            if (!finished) {
+                // Trigger the warning dialog
+                e.preventDefault();
+                e.returnValue = "";
+            }
+        });
     </script>
 
-    <div id="study-container">
-        <!-- p5.js will inject the canvas here -->
-    </div>
-    
-    <!-- Navigation: link to advance to next page -->
+    <!-- Global variables declared here are available in the p5 sketch. -->
+    <script>
+        const condition_name = "{{condition_name}}";
+        const condition_number = "{{participant.condition}}";
+    </script>
+
+    <!-- This div is used by the p5.js sketch to place the canvas.  -->
+    <div id="study-container"></div>
+
+    <!-- This button links to the next page (may not be necessary). -->
     <p><a href="/redirect_next_page" class="btn btn-primary">Continue</a></p>
 </body>
