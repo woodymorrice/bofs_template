@@ -1,5 +1,5 @@
-/* Any variables initialized in the global script in task.html can be directly
-referenced by name in any script. */
+/* Any variables initialized in the global-variables script in task.html can be 
+directly referenced by name in any script. */
 let canvas, fullscreen, parent;
 
 function preload() {  
