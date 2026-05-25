@@ -1,9 +1,14 @@
 /* Any variables initialized in the global-variables script in task.html can be 
 directly referenced by name in any script. */
-let canvas, fullscreen, parent;
+let canvas, fullscreen, layout, overview, parent, tree;
+const MAX_WIDTH = 3920;
+const MAX_HEIGHT = 2160;
+
 
 function preload() {  
     // TODO
+    overview = loadImage("/blueprint/test/overview.png");
+    tree = loadJSON("/blueprint/test/root.json");
 }
 
 
@@ -16,17 +21,33 @@ function setup() {
 
 
 function draw() {
+    let widthScale = windowWidth / overview.width;
+    let heightScale = windowHeight / overview.height;
+
     // TODO
     background([255, 0, 0]);
     noStroke();
     fill([255, 255, 255]);
+    image(overview, 0, 0, windowWidth, windowHeight);
     
     if (!fullscreen) {
         text("Press Enter for fullscreen", 10, 10);
         return;
     }
 
-    text(condition_name + " (" + condition_number + ")", 10, 10);
+    // text(condition_name + " (" + condition_number + ")", 10, 10);
+
+    let [hovered, hoverIndex] = findHovered(tree, mouseX/widthScale, mouseY/heightScale);
+    if (hovered) {
+        text(hovered.name + " (" + hovered.id + ")", windowWidth/2, windowHeight/2);
+        noFill();
+        stroke(255, 0, 0);
+        rect(hovered.left[hoverIndex]*widthScale, hovered.top[hoverIndex]*heightScale, 
+            hovered.width[hoverIndex]*widthScale, hovered.height[hoverIndex]*heightScale);
+    }
+
+    fill([255, 0, 0]);
+    circle(mouseX, mouseY, 20);
 }
 
 
@@ -49,4 +70,19 @@ function keyPressed() {
 
 function windowResized() {
     resizeCanvas(windowWidth, windowHeight);
+}
+
+function findHovered(node, mx, my) {
+  if (node.children) {
+    for (let child of node.children) {
+      let [matchNode, matchIndex] = findHovered(child, mx, my);
+      if (matchNode) return [matchNode, matchIndex];
+    }
+    return [null, -1];
+  }
+  if (mx < node.left[0] || mx > node.left[0] + node.width) return [null, -1];
+  for (let i = 0; i < node.left.length; i++) {
+    if (my >= node.top[i] && my <= node.top[i] + node.heights[i]) return [node, i];
+  }
+  return [null, -1];
 }

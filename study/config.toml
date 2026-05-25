@@ -4,7 +4,7 @@ SQLALCHEMY_DATABASE_URI = 'sqlite:///study.db'
 # Application Settings
 TITLE = 'Study'
 ADMIN_PASSWORD = 'admin'
-USE_BREADCRUMBS = true
+USE_BREADCRUMBS = false
 PORT = 5000
 APPLICATION_ROOT = ''
 
