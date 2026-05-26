@@ -9,6 +9,7 @@ function preload() {
     // TODO
     overview = loadImage("/blueprint/test/overview.png");
     tree = loadJSON("/blueprint/test/root.json");
+    layout = loadJSON("/blueprint/test/layout.json");
 }
 
 
@@ -37,13 +38,15 @@ function draw() {
 
     // text(condition_name + " (" + condition_number + ")", 10, 10);
 
-    let [hovered, hoverIndex] = findHovered(tree, mouseX/widthScale, mouseY/heightScale);
+    let [hovered, hoverIndex] = findHovered(layout, tree, mouseX/widthScale, mouseY/heightScale);
     if (hovered) {
-        text(hovered.name + " (" + hovered.id + ")", windowWidth/2, windowHeight/2);
+        text(hovered.name + " (" + hovered.id + ")\n" +
+            "Left: " + hovered.left[hoverIndex] + ", Top: " + hovered.top[hoverIndex] + "\n" +
+            "Width: " + hovered.width + ", Height: " + hovered.heights[hoverIndex], windowWidth/2, windowHeight/2);
         noFill();
-        stroke(255, 0, 0);
-        rect(hovered.left[hoverIndex]*widthScale, hovered.top[hoverIndex]*heightScale, 
-            hovered.width[hoverIndex]*widthScale, hovered.height[hoverIndex]*heightScale);
+        stroke([255, 0, 0]);
+        rect(hovered.left[hoverIndex]*widthScale, (hovered.top[hoverIndex]-layout.labelHeight*layout.heightScale)*heightScale, 
+            hovered.width*widthScale, hovered.heights[hoverIndex]*heightScale);
     }
 
     fill([255, 0, 0]);
@@ -72,7 +75,7 @@ function windowResized() {
     resizeCanvas(windowWidth, windowHeight);
 }
 
-function findHovered(node, mx, my) {
+function findHovered(layout, node, mx, my) {
   if (node.children) {
     for (let child of node.children) {
       let [matchNode, matchIndex] = findHovered(child, mx, my);
@@ -82,7 +85,7 @@ function findHovered(node, mx, my) {
   }
   if (mx < node.left[0] || mx > node.left[0] + node.width) return [null, -1];
   for (let i = 0; i < node.left.length; i++) {
-    if (my >= node.top[i] && my <= node.top[i] + node.heights[i]) return [node, i];
+    if (my >= node.top[i] && my <= (node.top[i]-layout.labelHeight*layout.heightScale) + node.heights[i]) return [node, i];
   }
   return [null, -1];
 }
