@@ -23,11 +23,11 @@ def get_condition1():
 def get_condition2():
     return task("Condition 2")
                                          
-@blueprint.route("/task/condition3", methods=["GET"])
-@verify_correct_page
-@verify_session_valid
-def get_condition3():
-    return task("Condition 3")
+# @blueprint.route("/task/condition3", methods=["GET"])
+# @verify_correct_page
+# @verify_session_valid
+# def get_condition3():
+#     return task("Condition 3")
 
 
 def task(condition_name: str):

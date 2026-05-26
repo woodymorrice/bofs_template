@@ -24,7 +24,7 @@ EXTERNAL_ID_PROMPT = "Please enter your participant ID from the recruitment plat
 CONDITIONS = [
     {label='Condition 1', enabled=true},
     {label='Condition 2', enabled=true},
-    {label='Condition 3', enabled=true}
+    # {label='Condition 3', enabled=true}
 ]
 
 # Page List - defines the experiment flow
@@ -62,36 +62,36 @@ PAGE_LIST = [
             {name='Condition 2 Task', path='task/condition2'},
             {name='Condition 2 Questionnaire', path='questionnaire/condition2'},
 
-            {name='Condition 3 Instructions', path='instructions/condition3'},
-            {name='Condition 3 Task', path='task/condition3'},
-            {name='Condition 3 Questionnaire', path='questionnaire/condition3'},
+            # {name='Condition 3 Instructions', path='instructions/condition3'},
+            # {name='Condition 3 Task', path='task/condition3'},
+            # {name='Condition 3 Questionnaire', path='questionnaire/condition3'},
         ]},
         {condition=2, page_list=[
             {name='Condition 2 Instructions', path='instructions/condition2'},
             {name='Condition 2 Task', path='task/condition2'},
             {name='Condition 2 Questionnaire', path='questionnaire/condition2'},
 
-            {name='Condition 3 Instructions', path='instructions/condition3'},
-            {name='Condition 3 Task', path='task/condition3'},
-            {name='Condition 3 Questionnaire', path='questionnaire/condition3'},
+            # {name='Condition 3 Instructions', path='instructions/condition3'},
+            # {name='Condition 3 Task', path='task/condition3'},
+            # {name='Condition 3 Questionnaire', path='questionnaire/condition3'},
 
             {name='Condition 1 Instructions', path='instructions/condition1'},
             {name='Condition 1 Task', path='task/condition1'},
             {name='Condition 1 Questionnaire', path='questionnaire/condition1'},
         ]},
-        {condition=3, page_list=[
-            {name='Condition 3 Instructions', path='instructions/condition3'},
-            {name='Condition 3 Task', path='task/condition3'},
-            {name='Condition 3 Questionnaire', path='questionnaire/condition3'},
+        # {condition=3, page_list=[
+        #     {name='Condition 3 Instructions', path='instructions/condition3'},
+        #     {name='Condition 3 Task', path='task/condition3'},
+        #     {name='Condition 3 Questionnaire', path='questionnaire/condition3'},
 
-            {name='Condition 1 Instructions', path='instructions/condition1'},
-            {name='Condition 1 Task', path='task/condition1'},
-            {name='Condition 1 Questionnaire', path='questionnaire/condition1'},
+        #     {name='Condition 1 Instructions', path='instructions/condition1'},
+        #     {name='Condition 1 Task', path='task/condition1'},
+        #     {name='Condition 1 Questionnaire', path='questionnaire/condition1'},
 
-            {name='Condition 2 Instructions', path='instructions/condition2'},
-            {name='Condition 2 Task', path='task/condition2'},
-            {name='Condition 2 Questionnaire', path='questionnaire/condition2'},
-        ]},
+        #     {name='Condition 2 Instructions', path='instructions/condition2'},
+        #     {name='Condition 2 Task', path='task/condition2'},
+        #     {name='Condition 2 Questionnaire', path='questionnaire/condition2'},
+        # ]},
     ]},
     {name='Final Questionnaire', path='questionnaire/final'},
     {name='End', path='end'},
