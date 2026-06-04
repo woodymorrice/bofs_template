@@ -48,9 +48,9 @@ const html = htm.bind(React.createElement);
 const TREE_URL = "/blueprint/boltz/root.json";
 
 const ACTIVITY_ITEMS = [
-    { id: "Explorer (Ctrl+Shift+E)", icon: "document" },
-    { id: "Search (Ctrl+Shift+F)",   icon: "search"   },
-    { id: "Source Control (Ctrl+Shift+G)", icon: "git-branch" },
+    { id: "Explorer (Ctrl+Shift+E)",       icon: "document",   disabled: false },
+    { id: "Search (Ctrl+Shift+F)",         icon: "search",     disabled: false },
+    { id: "Source Control (Ctrl+Shift+G)", icon: "git-branch", disabled: true  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -374,14 +374,14 @@ function TopNav({ allFiles, onSearchSelect, totalLines, onGoToLine }) {
             <${NavbarGroup} align=${Alignment.LEFT}>
                 <${NavbarHeading}>CodeIDE<//>
                 <${NavbarDivider} />
-                <${Button} minimal text="File" />
-                <${Button} minimal text="Edit" />
-                <${Button} minimal text="Selection" />
-                <${Button} minimal text="View" />
-                <${Button} minimal text="Go" />
-                <${Button} minimal text="Run" />
-                <${Button} minimal text="Terminal" />
-                <${Button} minimal text="Help" />
+                <${Button} minimal text="File" disabled />
+                <${Button} minimal text="Edit" disabled />
+                <${Button} minimal text="Selection" disabled />
+                <${Button} minimal text="View" disabled />
+                <${Button} minimal text="Go" disabled />
+                <${Button} minimal text="Run" disabled />
+                <${Button} minimal text="Terminal" disabled />
+                <${Button} minimal text="Help" disabled />
             <//>
             <${NavbarGroup} align=${Alignment.RIGHT}>
                 <${Button} minimal icon="help" />
@@ -426,8 +426,12 @@ function ActivityBar({ activeItem, onItemClick }) {
                 ${ACTIVITY_ITEMS.map(item => {
                     const isActive = activeItem === item.id;
                     return html`
-                        <div key=${item.id} style=${{ position: "relative" }}>
-                            ${isActive && html`
+                        <div key=${item.id} style=${{
+                            position: "relative",
+                            opacity: item.disabled ? 0.35 : 1,
+                            cursor: item.disabled ? "not-allowed" : "auto",
+                        }}>
+                            ${isActive && !item.disabled && html`
                                 <div style=${{
                                     position: "absolute",
                                     left: 0, top: 0, bottom: 0,
@@ -438,12 +442,15 @@ function ActivityBar({ activeItem, onItemClick }) {
                             <${Button}
                                 minimal large
                                 icon=${item.icon}
+                                disabled=${item.disabled}
                                 style=${{
                                     color: isActive ? "#ffffff" : "#858585",
                                     width: "100%",
                                     borderRadius: 0,
+                                    pointerEvents: item.disabled ? "none" : "auto",
+                                    cursor: item.disabled ? "not-allowed" : "auto",
                                 }}
-                                onClick=${() => onItemClick(item.id)} />
+                                onClick=${() => !item.disabled && onItemClick(item.id)} />
                         </div>
                     `;
                 })}
@@ -461,24 +468,45 @@ function ActivityBar({ activeItem, onItemClick }) {
 // ---------------------------------------------------------------------------
 
 /**
- * Sidebar — scrollable file tree on the left side of the body area.
+ * SidebarHeader — small uppercase label used at the top of each sidebar panel,
+ * styled after VS Code's section headers.
  *
- * Appearance: 240 px wide, light grey background, 1 px right border.
- * Renders a Blueprint Tree built from rawTree. Shows a spinner while the
- * tree is not yet available.
- *
- * Responding to revealNodeId: when this prop changes to a non-null value,
- * the sidebar finds that node in its tree, expands all ancestor directories,
- * selects the node, and calls onRevealComplete so the parent can clear the
- * prop (allowing the same node to be revealed again if searched twice).
+ * Appearance: all-caps, 11 px, semi-bold, muted colour, with horizontal
+ * padding that aligns with the tree node labels below it.
  *
  * Props:
- *   rawTree         {object|null} - raw root.json tree, or null while loading
- *   revealNodeId    {string|null} - id of a node to expand and select, or null
- *   onRevealComplete {function}  - called after the reveal is applied
- *   onSelect        {function}   - called with a raw TreeFile node on click
+ *   title {string} - the label text (rendered as-is, uppercasing via CSS)
  */
-function Sidebar({ rawTree, revealNodeId, onRevealComplete, onSelect }) {
+function SidebarHeader({ title }) {
+    return html`
+        <div style=${{
+            padding: "12px 12px 4px 12px",
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: "#5c7080",
+            userSelect: "none",
+        }}>
+            ${title}
+        </div>
+    `;
+}
+
+/**
+ * ExplorerPanel — the file tree panel shown when the Explorer activity is active.
+ *
+ * Shows a spinner while rawTree is loading, then a Blueprint Tree of the
+ * directory structure. Handles expand/collapse and selection, and responds to
+ * revealNodeId to programmatically expand and highlight a node (used by search).
+ *
+ * Props:
+ *   rawTree          {object|null} - raw root.json tree, or null while loading
+ *   revealNodeId     {string|null} - node id to expand and select, or null
+ *   onRevealComplete {function}   - called after the reveal so parent can clear it
+ *   onSelect         {function}   - called with a raw TreeFile node on click
+ */
+function ExplorerPanel({ rawTree, revealNodeId, onRevealComplete, onSelect }) {
     const [nodes, setNodes] = useState([]);
 
     useEffect(() => {
@@ -527,6 +555,51 @@ function Sidebar({ rawTree, revealNodeId, onRevealComplete, onSelect }) {
         );
     }
 
+    if (!rawTree) {
+        return html`<${Spinner} size=${20} style=${{ margin: "24px auto", display: "block" }} />`;
+    }
+
+    return html`
+        <${Tree}
+            contents=${nodes}
+            onNodeClick=${handleNodeClick}
+            onNodeExpand=${handleNodeExpand}
+            onNodeCollapse=${handleNodeCollapse} />
+    `;
+}
+
+/**
+ * SearchPanel — placeholder panel shown when the Search activity is active.
+ * To be implemented.
+ */
+function SearchPanel() {
+    return html`
+        <p className="bp5-text-muted" style=${{ padding: "16px 12px", fontSize: 12 }}>
+            Search is not yet implemented.
+        </p>
+    `;
+}
+
+/**
+ * Sidebar — the panel area to the right of the ActivityBar.
+ *
+ * Appearance: 240 px wide, light grey background, 1 px right border.
+ * Renders a panel header and content determined by activeActivity:
+ *   Explorer activity  — SidebarHeader "EXPLORER" + ExplorerPanel (file tree)
+ *   Search activity    — SidebarHeader "SEARCH"   + SearchPanel (placeholder)
+ *   Any other activity — nothing (panel is blank)
+ *
+ * Props:
+ *   activeActivity   {string}      - id of the active ActivityBar item
+ *   rawTree          {object|null} - passed through to ExplorerPanel
+ *   revealNodeId     {string|null} - passed through to ExplorerPanel
+ *   onRevealComplete {function}    - passed through to ExplorerPanel
+ *   onSelect         {function}    - passed through to ExplorerPanel
+ */
+function Sidebar({ activeActivity, rawTree, revealNodeId, onRevealComplete, onSelect }) {
+    const explorerActive = activeActivity === "Explorer (Ctrl+Shift+E)";
+    const searchActive   = activeActivity === "Search (Ctrl+Shift+F)";
+
     return html`
         <div style=${{
             width: 240,
@@ -534,17 +607,21 @@ function Sidebar({ rawTree, revealNodeId, onRevealComplete, onSelect }) {
             overflowY: "auto",
             flexShrink: 0,
             background: "#f6f7f9",
+            display: "flex",
+            flexDirection: "column",
         }}>
-            ${!rawTree
-                ? html`<${Spinner} size=${20} style=${{ margin: "24px auto", display: "block" }} />`
-                : html`
-                    <${Tree}
-                        contents=${nodes}
-                        onNodeClick=${handleNodeClick}
-                        onNodeExpand=${handleNodeExpand}
-                        onNodeCollapse=${handleNodeCollapse} />
-                `
-            }
+            ${explorerActive && html`
+                <${SidebarHeader} title="Explorer" />
+                <${ExplorerPanel}
+                    rawTree=${rawTree}
+                    revealNodeId=${revealNodeId}
+                    onRevealComplete=${onRevealComplete}
+                    onSelect=${onSelect} />
+            `}
+            ${searchActive && html`
+                <${SidebarHeader} title="Search" />
+                <${SearchPanel} />
+            `}
         </div>
     `;
 }
@@ -736,6 +813,7 @@ function StudyApp() {
             <div style=${{ display: "flex", flex: 1, overflow: "hidden" }}>
                 <${ActivityBar} activeItem=${activeActivity} onItemClick=${setActiveActivity} />
                 <${Sidebar}
+                    activeActivity=${activeActivity}
                     rawTree=${rawTree}
                     revealNodeId=${revealNodeId}
                     onRevealComplete=${() => setRevealNodeId(null)}
