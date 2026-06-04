@@ -1,6 +1,10 @@
 <head>
     <script src="{{ url_for('blueprint.static', filename='p5.min.js') }}"></script>
     <script type="module" src="{{ url_for('blueprint.static', filename='main.js') }}"></script>
+    <script type="module" src="{{ url_for('blueprint.static', filename='react-app.js') }}"></script>
+
+    <link rel="stylesheet" href="https://unpkg.com/@blueprintjs/icons@5/lib/css/blueprint-icons.css" />
+    <link rel="stylesheet" href="https://unpkg.com/@blueprintjs/core@5/lib/css/blueprint.css" />
 
     <!-- This style makes the p5 canvas fill the entire page. -->
     <style>
@@ -10,6 +14,15 @@
             top: 0; left: 0;
             width: 100vw;
             height: 100vh;
+        }
+        #react-container {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 10;
+            background: #fff;
         }
     </style>
 </head>

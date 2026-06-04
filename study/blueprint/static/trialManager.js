@@ -19,7 +19,6 @@ export function startTrial() {
     if (mode === "standard") {
         studyContainer.style.display = "none";
         reactContainer.style.display = "block";
-        reactContainer.textContent = "React placeholder";
     }
     else if (mode === "thumbview") {
         reactContainer.style.display = "none";
