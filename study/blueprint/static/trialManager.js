@@ -4,6 +4,7 @@ export const studyContainer = document.getElementById("study-container");
 export const reactContainer = document.getElementById("react-container");
 
 let mode = null;
+let trialStarted = false;
 
 export function initTrial() {
     if (condition_name === "Condition 1") {
@@ -15,7 +16,10 @@ export function initTrial() {
 }
 
 export function startTrial() {
+    if (trialStarted) return;
+    trialStarted = true;
     initTrial();
+    window.studyTrialActive = true;
     if (mode === "standard") {
         studyContainer.style.display = "none";
         reactContainer.style.display = "block";
@@ -27,6 +31,7 @@ export function startTrial() {
 }
 
 function endTrial() {
+    window.studyTrialActive = false;
     document.removeEventListener("keydown", onKeyPress);
 }
 

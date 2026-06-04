@@ -117,7 +117,8 @@ function drawPreTrial(p) {
 
 function drawTrial(p, overview, layout, tree) {
     if (condition_name === "Condition 1") {
-
+        p.background([0, 0, 0]);
+        p.image(overview, 0, 0, p.windowWidth, p.windowHeight);
     }
     else if (condition_name === "Condition 2") {
         let widthScale = p.windowWidth / overview.width;
