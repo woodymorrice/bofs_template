@@ -27,7 +27,7 @@
  *   - Browse Blueprint components and icons at https://blueprintjs.com/docs/
  */
 
-import React, { useState, useEffect, useMemo, useRef, useCallback } from "https://esm.sh/react@18";
+import React, { useState, useEffect, useMemo, useRef, useCallback, useContext } from "https://esm.sh/react@18";
 import { createRoot } from "https://esm.sh/react-dom@18/client";
 import htm from "https://esm.sh/htm@3";
 import hljs from "https://esm.sh/highlight.js@11";
@@ -46,6 +46,8 @@ import {
     codeFont,
     codeFontSize,
     codeLineHeight,
+    debugMode,
+    condition2ContextLines,
 } from "./study-config.js";
 
 const html = htm.bind(React.createElement);
@@ -100,6 +102,30 @@ const ACTIVITY_ITEMS = [
     `;
     document.head.appendChild(style);
 }());
+
+// In debug mode, make the canvas toggle (right-click) available immediately,
+// without waiting for the trial phase to start.
+if (debugMode) window.studyTrialActive = true;
+
+// ---------------------------------------------------------------------------
+// MARK: App mode context
+// ---------------------------------------------------------------------------
+
+/**
+ * AppModeContext — carries the current condition flags to every component
+ * without prop-drilling. Published by StudyApp via a Provider wrapper.
+ *
+ * isCondition2 {bool} — true when running Condition 2 AND debugMode is off.
+ *   - TopNav hides SearchBar (which also disables Ctrl+Shift+P and Ctrl+G).
+ *   - DocumentView disables FindBar and shows only a locked line window.
+ *   - StudyApp omits ActivityBar, Sidebar, and TabBar from the render.
+ *   - All navigation keyboard shortcuts (Ctrl+F, Ctrl+\, Ctrl+Shift+F) are
+ *     silently no-oped.
+ *
+ * Adding a new condition: add a field here, publish it in StudyApp, and
+ * consume it with useContext(AppModeContext) in whichever component needs it.
+ */
+const AppModeContext = React.createContext({ isCondition2: false });
 
 // ---------------------------------------------------------------------------
 // MARK: Tree utility functions
@@ -623,6 +649,11 @@ function FindBar({ query, onQueryChange, matchCase, wholeWord, useRegex, onToggl
  *   onGoToLine     {function}     - called with a line number from go-to-line
  */
 function TopNav({ allFiles, onSearchSelect, totalLines, onGoToLine }) {
+    const { isCondition2 } = useContext(AppModeContext);
+
+    // In condition 2, the SearchBar is hidden entirely. Because SearchBar is
+    // not mounted, its useEffect never runs, so the Ctrl+Shift+P and Ctrl+G
+    // global keyboard handlers are also automatically disabled.
     return html`
         <${Navbar} style=${{ position: "relative" }}>
             <${NavbarGroup} align=${Alignment.LEFT}>
@@ -641,11 +672,13 @@ function TopNav({ allFiles, onSearchSelect, totalLines, onGoToLine }) {
                 <${Button} minimal icon="help" disabled />
                 <${Button} minimal icon="cog" disabled />
             <//>
-            <${SearchBar}
-                allFiles=${allFiles}
-                onSelect=${onSearchSelect}
-                totalLines=${totalLines}
-                onGoToLine=${onGoToLine} />
+            ${!isCondition2 && html`
+                <${SearchBar}
+                    allFiles=${allFiles}
+                    onSelect=${onSearchSelect}
+                    totalLines=${totalLines}
+                    onGoToLine=${onGoToLine} />
+            `}
         <//>
     `;
 }
@@ -1132,8 +1165,12 @@ function Sidebar({ activeActivity, rawTree, revealNodeId, onRevealComplete, onSe
  *                                    number to trigger a jump again)
  *   isActive        {bool}         - true when this pane has UI focus; gates
  *                                    Ctrl+F so only the focused pane responds
+ *   lockedLine      {number|null}  - condition 2 only: 1-based line to centre
+ *                                    the locked view on; null in condition 1
  */
-function DocumentView({ selectedNode, goToLine, onGoToLineDone, isActive = true }) {
+function DocumentView({ selectedNode, goToLine, onGoToLineDone, isActive = true, lockedLine = null }) {
+    const { isCondition2 } = useContext(AppModeContext);
+
     // --- go-to-line ---
     const [flashLine, setFlashLine] = useState(null);
 
@@ -1145,6 +1182,18 @@ function DocumentView({ selectedNode, goToLine, onGoToLineDone, isActive = true 
     const [findUseRegex,   setFindUseRegex]   = useState(false);
     const [findCurrentIdx, setFindCurrentIdx] = useState(0);
     const findInputRef = useRef(null);
+
+    // Condition 2 locked view: slice to a window of condition2ContextLines lines
+    // above and below lockedLine. null = show all lines (condition 1 behaviour).
+    // Line ids (code-line-N) still use the original 1-based file line numbers so
+    // go-to-line flash and find scroll both target the correct elements.
+    const visibleRange = useMemo(() => {
+        if (!isCondition2 || lockedLine == null || !selectedNode?.lines) return null;
+        const center = lockedLine - 1; // 0-based
+        const start  = Math.max(0, center - condition2ContextLines);
+        const end    = Math.min(selectedNode.lines.length - 1, center + condition2ContextLines);
+        return { start, end };
+    }, [isCondition2, lockedLine, selectedNode]);
 
     // Syntax-highlighted HTML for each line in the current file.
     const highlightedLines = useMemo(() => {
@@ -1197,10 +1246,11 @@ function DocumentView({ selectedNode, goToLine, onGoToLineDone, isActive = true 
 
     // Global Ctrl+F: show the find bar. Only the focused pane responds
     // (isActive guard) so both panes don't open simultaneously.
+    // Disabled entirely in condition 2.
     useEffect(() => {
         function onKeyDown(e) {
             if (e.ctrlKey && !e.shiftKey && e.key === "f") {
-                if (!selectedNode || !isActive) return;
+                if (!selectedNode || !isActive || isCondition2) return;
                 e.preventDefault();
                 setFindVisible(true);
                 requestAnimationFrame(() => { findInputRef.current?.focus(); findInputRef.current?.select(); });
@@ -1211,12 +1261,14 @@ function DocumentView({ selectedNode, goToLine, onGoToLineDone, isActive = true 
         return () => window.removeEventListener("keydown", onKeyDown);
     }, [selectedNode, findVisible, isActive]);
 
-    // go-to-line: scroll and flash.
+    // go-to-line: flash the target line. Skip scrollIntoView in condition 2 —
+    // the line is already visible in the rendered window, and overflow:hidden
+    // on the container would prevent the scroll from taking effect anyway.
     useEffect(() => {
         if (!goToLine) return;
         const el = document.getElementById(`code-line-${goToLine}`);
         if (!el) return;
-        el.scrollIntoView({ block: "center" });
+        if (!isCondition2) el.scrollIntoView({ block: "center" });
         setFlashLine(goToLine);
         const timer = setTimeout(() => { setFlashLine(null); onGoToLineDone?.(); }, 1200);
         return () => clearTimeout(timer);
@@ -1236,7 +1288,9 @@ function DocumentView({ selectedNode, goToLine, onGoToLineDone, isActive = true 
                 <${NonIdealState}
                     icon="document"
                     title="No file selected"
-                    description="Select a file from the sidebar or use Ctrl+Shift+P to search." />
+                    description=${isCondition2
+                        ? "Use the spatial overview to navigate to a file location."
+                        : "Select a file from the sidebar or use Ctrl+Shift+P to search."} />
             </div>
         `;
     }
@@ -1247,7 +1301,7 @@ function DocumentView({ selectedNode, goToLine, onGoToLineDone, isActive = true 
     return html`
         <div style=${{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
 
-            ${findVisible && html`
+            ${findVisible && !isCondition2 && html`
                 <${FindBar}
                     query=${findQuery}
                     onQueryChange=${setFindQuery}
@@ -1263,7 +1317,7 @@ function DocumentView({ selectedNode, goToLine, onGoToLineDone, isActive = true 
                     inputRef=${findInputRef} />
             `}
 
-            <div style=${{ flex: 1, overflowY: "auto", padding: 24 }}>
+            <div style=${{ flex: 1, overflowY: visibleRange ? "hidden" : "auto", padding: 24 }}>
 
                 <h2 className="bp5-heading" style=${{ marginBottom: 4 }}>${selectedNode.name}</h2>
                 <p className="bp5-text-muted" style=${{ marginBottom: 16, fontSize: 12 }}>
@@ -1280,28 +1334,34 @@ function DocumentView({ selectedNode, goToLine, onGoToLineDone, isActive = true 
                         background: "transparent",
                     }}>
                         <code style=${{ display: "block" }}>
-                            ${linesWithHighlights.map((lineHtml, i) => html`
-                                <div
-                                    key=${i}
-                                    id=${`code-line-${i + 1}`}
-                                    style=${{
-                                        display: "flex",
-                                        minHeight: `${codeFontSize * codeLineHeight}px`,
-                                        animation: flashLine === i + 1 ? "line-flash 1.2s ease-out forwards" : "none",
-                                    }}>
-                                    <span style=${{
-                                        color: "#aab1bf",
-                                        minWidth: 48,
-                                        textAlign: "right",
-                                        paddingRight: 20,
-                                        userSelect: "none",
-                                        flexShrink: 0,
-                                    }}>
-                                        ${i + 1}
-                                    </span>
-                                    <span dangerouslySetInnerHTML=${{ __html: lineHtml || " " }}></span>
-                                </div>
-                            `)}
+                            ${(visibleRange
+                                ? linesWithHighlights.slice(visibleRange.start, visibleRange.end + 1)
+                                : linesWithHighlights
+                            ).map((lineHtml, sliceIdx) => {
+                                const i = visibleRange ? visibleRange.start + sliceIdx : sliceIdx;
+                                return html`
+                                    <div
+                                        key=${i}
+                                        id=${`code-line-${i + 1}`}
+                                        style=${{
+                                            display: "flex",
+                                            minHeight: `${codeFontSize * codeLineHeight}px`,
+                                            animation: flashLine === i + 1 ? "line-flash 1.2s ease-out forwards" : "none",
+                                        }}>
+                                        <span style=${{
+                                            color: "#aab1bf",
+                                            minWidth: 48,
+                                            textAlign: "right",
+                                            paddingRight: 20,
+                                            userSelect: "none",
+                                            flexShrink: 0,
+                                        }}>
+                                            ${i + 1}
+                                        </span>
+                                        <span dangerouslySetInnerHTML=${{ __html: lineHtml || " " }}></span>
+                                    </div>
+                                `;
+                            })}
                         </code>
                     </pre>
                 ` : html`
@@ -1517,8 +1577,23 @@ function TabBar({ tabs, activeIdx, isFocused, side, onTabClick, onTabClose, onTa
  *   revealNodeId   {string|null}    - node id for ExplorerPanel to expand+select
  *   isSplit        {bool}           - whether the right pane is visible
  *   focusSide      {"left"|"right"} - which pane receives new file opens
+ *
+ * Condition 2 additions:
+ *   isCondition2   {bool}           - derived from window.condition_name + debugMode
+ *   lockedLine     {number|null}    - target line set by window.studyNavigateTo;
+ *                                    passed to DocumentView to engage the locked view
+ *
+ * window.studyNavigateTo(nodeId, lineNum):
+ *   Called by the p5 spatial overview to open a file at a specific line.
+ *   Implemented via a ref so it always has fresh closures without needing to
+ *   re-register the handler on every render. In debug mode, the UI switch is
+ *   skipped so you can call it from the console while the React UI is visible.
  */
 function StudyApp() {
+    // Derived once from the server-set global and the debugMode config flag.
+    // window.condition_name is safe to read — undefined evaluates to false.
+    const isCondition2 = !debugMode && window.condition_name === "Condition 2";
+
     const [rawTree,       setRawTree]       = useState(null);
     const [activeActivity, setActiveActivity] = useState("Explorer (Ctrl+Shift+E)");
     const [revealNodeId,  setRevealNodeId]  = useState(null);
@@ -1536,6 +1611,9 @@ function StudyApp() {
     // --- Split / focus ---
     const [isSplit,       setIsSplit]       = useState(false);
     const [focusSide,     setFocusSide]     = useState("left");
+
+    // Condition 2: line that DocumentView's locked view centres on.
+    const [lockedLine, setLockedLine] = useState(null);
 
     useEffect(() => {
         fetch(TREE_URL).then(r => r.json()).then(setRawTree);
@@ -1648,10 +1726,38 @@ function StudyApp() {
         else setRightGoToLine(lineNum);
     }
 
-    // Ctrl+Shift+F — switch to Search panel (SearchPanel auto-focuses on mount).
+    // window.studyNavigateTo — called by the p5 spatial overview (condition 2)
+    // or from the browser console (debug mode) to open a file at a specific line.
+    //
+    // Uses a ref so the handler is registered once (empty dep array) but always
+    // closes over the latest openFile / handleGoToLine / allFiles values.
+    const navigateRef = useRef({});
+    navigateRef.current = { allFiles, openFile, handleGoToLine, setLockedLine };
+
+    useEffect(() => {
+        window.studyNavigateTo = (nodeId, lineNum) => {
+            const { allFiles, openFile, handleGoToLine, setLockedLine } = navigateRef.current;
+            const node = allFiles.find(f => f.id === nodeId);
+            if (!node) return;
+            openFile(node);
+            setLockedLine(lineNum ?? null);
+            if (lineNum != null) handleGoToLine(lineNum);
+            // Switch canvas → React UI. Skipped in debug mode so both stay visible.
+            if (!debugMode) {
+                const reactEl = document.getElementById("react-container");
+                const canvasEl = document.getElementById("study-container");
+                if (reactEl) reactEl.style.display = "block";
+                if (canvasEl) canvasEl.style.display = "none";
+            }
+        };
+        return () => { delete window.studyNavigateTo; };
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Ctrl+Shift+F — switch to Search panel (condition 1 / debug only).
     useEffect(() => {
         function onKeyDown(e) {
             if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "f") {
+                if (isCondition2) return;
                 e.preventDefault();
                 setActiveActivity("Search (Ctrl+Shift+F)");
             }
@@ -1667,6 +1773,7 @@ function StudyApp() {
     useEffect(() => {
         function onKeyDown(e) {
             if (e.ctrlKey && !e.shiftKey && e.key === "\\") {
+                if (isCondition2) return;
                 e.preventDefault();
                 splitMoveTab();
             }
@@ -1733,71 +1840,81 @@ function StudyApp() {
     }
 
     return html`
-        <div style=${{ display: "flex", flexDirection: "column", height: "100%" }}>
-            <${TopNav}
-                allFiles=${allFiles}
-                onSearchSelect=${handleSearchSelect}
-                totalLines=${totalLines}
-                onGoToLine=${handleGoToLine} />
-            <div style=${{ display: "flex", flex: 1, overflow: "hidden" }}>
-                <${ActivityBar} activeItem=${activeActivity} onItemClick=${setActiveActivity} />
-                <${Sidebar}
-                    activeActivity=${activeActivity}
-                    rawTree=${rawTree}
-                    revealNodeId=${revealNodeId}
-                    onRevealComplete=${() => setRevealNodeId(null)}
-                    onSelect=${openFile}
+        <${AppModeContext.Provider} value=${{ isCondition2 }}>
+            <div style=${{ display: "flex", flexDirection: "column", height: "100%" }}>
+                <${TopNav}
                     allFiles=${allFiles}
-                    onSelectSearchResult=${handleSelectSearchResult} />
+                    onSearchSelect=${handleSearchSelect}
+                    totalLines=${totalLines}
+                    onGoToLine=${handleGoToLine} />
+                <div style=${{ display: "flex", flex: 1, overflow: "hidden" }}>
 
-                <!-- Editor area: one or two panes -->
-                <div style=${{ flex: 1, display: "flex", overflow: "hidden" }}>
-
-                    <!-- Left pane -->
-                    <div
-                        onClick=${() => setFocusSide("left")}
-                        style=${{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
-                        <${TabBar}
-                            tabs=${leftTabs}
-                            activeIdx=${leftActive}
-                            isFocused=${focusSide === "left"}
-                            side="left"
-                            onTabClick=${i => { setLeftActive(i); setFocusSide("left"); }}
-                            onTabClose=${i => closeTab("left", i)}
-                            onTabDrop=${handleTabDrop} />
-                        <${DocumentView}
-                            selectedNode=${leftNode}
-                            goToLine=${leftGoToLine}
-                            onGoToLineDone=${() => setLeftGoToLine(null)}
-                            isActive=${focusSide === "left"} />
-                    </div>
-
-                    ${isSplit && html`
-                        <div style=${{ width: 1, background: "#c5cbd3", flexShrink: 0 }} />
-
-                        <!-- Right pane -->
-                        <div
-                            onClick=${() => setFocusSide("right")}
-                            style=${{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
-                            <${TabBar}
-                                tabs=${rightTabs}
-                                activeIdx=${rightActive}
-                                isFocused=${focusSide === "right"}
-                                side="right"
-                                onTabClick=${i => { setRightActive(i); setFocusSide("right"); }}
-                                onTabClose=${i => closeTab("right", i)}
-                                onTabDrop=${handleTabDrop} />
-                            <${DocumentView}
-                                selectedNode=${rightNode}
-                                goToLine=${rightGoToLine}
-                                onGoToLineDone=${() => setRightGoToLine(null)}
-                                isActive=${focusSide === "right"} />
-                        </div>
+                    <!-- ActivityBar and Sidebar are hidden in condition 2:
+                         all navigation happens in the p5 spatial overview. -->
+                    ${!isCondition2 && html`
+                        <${ActivityBar} activeItem=${activeActivity} onItemClick=${setActiveActivity} />
+                        <${Sidebar}
+                            activeActivity=${activeActivity}
+                            rawTree=${rawTree}
+                            revealNodeId=${revealNodeId}
+                            onRevealComplete=${() => setRevealNodeId(null)}
+                            onSelect=${openFile}
+                            allFiles=${allFiles}
+                            onSelectSearchResult=${handleSelectSearchResult} />
                     `}
 
+                    <!-- Editor area: one or two panes (split disabled in condition 2) -->
+                    <div style=${{ flex: 1, display: "flex", overflow: "hidden" }}>
+
+                        <!-- Left pane -->
+                        <div
+                            onClick=${() => setFocusSide("left")}
+                            style=${{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
+                            ${!isCondition2 && html`
+                                <${TabBar}
+                                    tabs=${leftTabs}
+                                    activeIdx=${leftActive}
+                                    isFocused=${focusSide === "left"}
+                                    side="left"
+                                    onTabClick=${i => { setLeftActive(i); setFocusSide("left"); }}
+                                    onTabClose=${i => closeTab("left", i)}
+                                    onTabDrop=${handleTabDrop} />
+                            `}
+                            <${DocumentView}
+                                selectedNode=${leftNode}
+                                goToLine=${leftGoToLine}
+                                onGoToLineDone=${() => setLeftGoToLine(null)}
+                                isActive=${focusSide === "left"}
+                                lockedLine=${isCondition2 ? lockedLine : null} />
+                        </div>
+
+                        ${!isCondition2 && isSplit && html`
+                            <div style=${{ width: 1, background: "#c5cbd3", flexShrink: 0 }} />
+
+                            <!-- Right pane -->
+                            <div
+                                onClick=${() => setFocusSide("right")}
+                                style=${{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
+                                <${TabBar}
+                                    tabs=${rightTabs}
+                                    activeIdx=${rightActive}
+                                    isFocused=${focusSide === "right"}
+                                    side="right"
+                                    onTabClick=${i => { setRightActive(i); setFocusSide("right"); }}
+                                    onTabClose=${i => closeTab("right", i)}
+                                    onTabDrop=${handleTabDrop} />
+                                <${DocumentView}
+                                    selectedNode=${rightNode}
+                                    goToLine=${rightGoToLine}
+                                    onGoToLineDone=${() => setRightGoToLine(null)}
+                                    isActive=${focusSide === "right"} />
+                            </div>
+                        `}
+
+                    </div>
                 </div>
             </div>
-        </div>
+        <//>
     `;
 }
 

@@ -72,3 +72,25 @@ export const codeFontSize = 13;
  * 1.5–1.7 is comfortable for reading; 1.0 is tightly packed.
  */
 export const codeLineHeight = 1.6;
+
+// ---------------------------------------------------------------------------
+// Study mode
+// ---------------------------------------------------------------------------
+
+/**
+ * Debug mode — when true, all React UI features are enabled regardless of
+ * condition, and the canvas right-click toggle is available immediately
+ * (without waiting for the trial to start). window.studyNavigateTo is also
+ * exposed so you can call it from the browser console to test canvas→React
+ * navigation without a fully wired p5 sketch.
+ *
+ * Set to FALSE before deploying to participants.
+ */
+export const debugMode = false;
+
+/**
+ * Lines of context shown above and below the target line in the Condition 2
+ * locked document view. E.g. 20 → 41 lines total (20 + target + 20).
+ * Increase for more surrounding context; decrease for a tighter focus.
+ */
+export const condition2ContextLines = 20;
