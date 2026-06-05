@@ -1,10 +1,23 @@
 /**
  * study-config.js
  *
- * Appearance settings for the React study UI.
- * Edit the values below to change the look of the code view.
- * All other files import from here — no other edits needed.
+ * Configuration for the React study UI and p5 sketch.
+ * Edit the values below — all other files import from here, so no other
+ * edits are needed when switching datasets or changing appearance.
  */
+
+// ---------------------------------------------------------------------------
+// Dataset
+// ---------------------------------------------------------------------------
+
+/**
+ * Folder name of the dataset to use, relative to /blueprint/.
+ * All data files (root.json, layout.json, overview.png) are loaded from
+ * /blueprint/<dataset>/...
+ *
+ * Available datasets live in study/blueprint/static/<dataset>/
+ */
+export const dataset = "boltz";
 
 // ---------------------------------------------------------------------------
 // Syntax highlighting theme

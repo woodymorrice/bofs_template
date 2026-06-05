@@ -1,5 +1,6 @@
 import { getCurrentPhase, setCurrentPhase, Phase } from "./phaseManager.js";
 import { startTrial, getMode } from "./trialManager.js";
+import { dataset } from "./study-config.js";
 
 
 
@@ -13,9 +14,9 @@ const sketch = (p) => {
     
     p.preload = function() {  
         // TODO
-        overview = p.loadImage("/blueprint/test/overview.png");
-        tree = p.loadJSON("/blueprint/test/root.json");
-        layout = p.loadJSON("/blueprint/test/layout.json");
+        overview = p.loadImage(`/blueprint/${dataset}/overview.png`);
+        tree = p.loadJSON(`/blueprint/${dataset}/root.json`);
+        layout = p.loadJSON(`/blueprint/${dataset}/layout.json`);
     }
     
     
