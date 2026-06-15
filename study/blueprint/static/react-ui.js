@@ -1,5 +1,5 @@
 /**
- * react-app.js
+ * react-ui.js
  *
  * Renders a VS Code-style study UI into #react-container using React 18 and
  * BlueprintJS 5. All imports are served from the esm.sh CDN — no build step

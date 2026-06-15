@@ -56,6 +56,8 @@ Issues are tracked on the GitHub repository. Use `gh issue` commands for all iss
 
 **This project overrides the default no-comment style.** The canvas code uses p5.js instance mode (an unusual pattern), the React UI uses `htm` tagged templates without JSX (a non-standard approach), and BOFS is a custom framework unfamiliar to most readers. All code must be commented so that any section can be understood without prior knowledge of these tools.
 
+**Scope:** these documentation requirements apply only to the files you own — the tracked `.js` files under `study/blueprint/static/` **except** `vendor/` (third-party libraries, do not edit), `study/blueprint/templates/simple/task.html`, and `study/blueprint/views.py`. Everything else (questionnaire JSON, instruction HTML, consent page, config files, BOFS internals) is boilerplate and does not need documentation added or modified.
+
 **Every file must have a top-of-file comment explaining:**
 - What the file is and what it does
 - What it exports and how those exports are used elsewhere
@@ -69,7 +71,7 @@ Issues are tracked on the GitHub repository. Use `gh issue` commands for all iss
 - Any BOFS pattern — `@verify_correct_page`, `@verify_session_valid`, how page flow and session management work
 - Any non-obvious logic or design decision
 
-**MARK comments:** add a `// MARK:` section marker before every class, function, and significant code section, wrapped in a divider line so it is visible when scanning the file. Use the pattern from `react-app.js`:
+**MARK comments:** add a `// MARK:` section marker before every class, function, and significant code section, wrapped in a divider line so it is visible when scanning the file. Use the pattern from `react-ui.js`:
 
 ```js
 // ---------------------------------------------------------------------------
@@ -105,14 +107,13 @@ study/
         task.html                # Single HTML page hosting both p5 canvas and React IDE
     static/
       study-config.js            # All UI/appearance constants (single source of truth)
-      phaseManager.js            # Phase state machine
-      trialManager.js            # UI switcher (canvas ↔ React)
-      canvas/                    # p5.js spatial canvas — pseudo-MVC
-        sketch.js                # Controller + entry point (p5 instance, hit detection)
+      p5-ui/                     # p5.js spatial canvas — pseudo-MVC
+        controller.js            # Controller + entry point (phases, trial mgmt, hit detection)
         model.js                 # Assets + mutable state (loaded via p.preload)
-        views.js                 # Pure draw functions (no schema knowledge)
-      react-app.js               # Monolithic VS Code IDE React component
-      p5.min.js                  # p5.js library (local copy)
+        view.js                  # Pure draw functions (no schema knowledge)
+      react-ui.js                # Monolithic VS Code IDE React component
+      vendor/
+        p5.min.js                # p5.js library (third-party, do not edit)
       boltz/                     # Example dataset
         root.json                # File tree with source lines and pixel dimensions
         layout.json              # Spatial positions for each node
@@ -126,7 +127,7 @@ study/
 
 ### Phase state machine
 
-`phaseManager.js` defines five ordered phases driven by keyboard input in `sketch.js`:
+The phase state machine lives in `controller.js` and defines five ordered phases driven by keyboard input:
 
 | Phase | Display | Advance |
 |---|---|---|
@@ -140,9 +141,9 @@ study/
 
 p5.js does not use pub/sub. The pseudo-MVC maps as follows:
 
-- **Model** (`model.js`): loaded assets (`overview`, `tree`, `layout`) and mutable state (`fullscreen`). `initAssets(p)` is called from `p.preload`; all other modules read via `getAssets()` / `getState()`.
-- **Controller** (`sketch.js`): the p5 sketch function. Owns the per-frame dispatch (`p.draw`), input handling (`p.keyPressed`, `p.mouseClicked`), and all logic that interprets input against the model — including `findHovered()` (hit detection) and `nodePositions()` (schema normalizer).
-- **View** (`views.js`): pure draw functions. Receive already-resolved, flat data from the controller. No schema knowledge, no hit-testing. Signature: `drawTrial(p, overview, layout, hoverInfo)`.
+- **Model** (`p5-ui/model.js`): loaded assets (`overview`, `tree`, `layout`) and mutable state (`fullscreen`). `initAssets(p)` is called from `p.preload`; all other modules read via `getAssets()` / `getState()`.
+- **Controller** (`p5-ui/controller.js`): the p5 sketch function plus the phase state machine and trial management. Owns the per-frame dispatch (`p.draw`), input handling (`p.keyPressed`), and all logic that interprets input against the model — including `findHovered()` (hit detection) and `nodePositions()` (schema normalizer).
+- **View** (`p5-ui/view.js`): pure draw functions. Receive already-resolved, flat data from the controller. No schema knowledge, no hit-testing. Signature: `drawTrial(p, overview, layout, hoverInfo)`.
 
 **Rule:** if code reads model data to answer "what did the user do?", it belongs in the controller. If it only draws to the canvas, it belongs in a view.
 
@@ -155,7 +156,7 @@ p5.js does not use pub/sub. The pseudo-MVC maps as follows:
 | boltz | scalar (`number`) | `height` | — |
 | test | array (`number[]`) | — | `heights` |
 
-`nodePositions(node)` in `sketch.js` normalizes both to arrays before use. Any new code that reads per-column node fields must go through `nodePositions()`.
+`nodePositions(node)` in `p5-ui/controller.js` normalizes both to arrays before use. Any new code that reads per-column node fields must go through `nodePositions()`.
 
 ### Coordinate spaces
 
@@ -167,22 +168,22 @@ Node coordinates in `root.json` are in **image-pixel space** (scaled by `widthSc
 
 `layout.widestWidth` is the column width used for both hit detection and rect drawing — individual `node.width` values are narrower and must not be used for column-spanning operations.
 
-### Global variables (task.html → p5 sketch)
+### Global variables (task.html → controller.js)
 
-`task.html` sets these before the module scripts load; they are accessed as globals inside the sketch:
+`task.html` sets these before the module scripts load; they are accessed as globals inside controller.js:
 
 - `condition_name` — `"Condition 1"` or `"Condition 2"` (Jinja2 injected)
 - `order_number` — participant's condition assignment number
 - `finished` — set to `true` before navigating away to suppress the beforeunload warning
 
-### trialManager.js
+### Trial management (controller.js)
 
 `startTrial()` is idempotent (guarded by `trialStarted`). It is called every frame from `p.draw` during the TRIAL phase, but only executes setup logic once. It sets `window.studyTrialActive = true` and shows/hides the appropriate container.
 
 - Condition 1: hides `#study-container`, shows `#react-container` (React IDE takes over)
 - Condition 2: hides `#react-container`, shows `#study-container` (canvas remains)
 
-### React app (react-app.js)
+### React UI (react-ui.js)
 
 Single-file, no build step. Uses `htm` tagged template literals as JSX substitute. Key exported surface:
 
@@ -275,10 +276,10 @@ After making any change, briefly explain:
 | Change font or theme | `study-config.js` |
 | Modify study page flow | `PAGE_LIST` in `config.toml` |
 | Add a condition | Add to `CONDITIONS` in `config.toml`; add route in `views.py`; create instructions HTML and questionnaire JSON |
-| Modify phase behaviour | `sketch.js` (`p.keyPressed`), `phaseManager.js` |
-| Change what's drawn per phase | `views.js` |
-| Change hit detection logic | `sketch.js` (`findHovered`, `nodePositions`) |
-| Modify React IDE features | `react-app.js` |
+| Modify phase behaviour | `p5-ui/controller.js` (`p.keyPressed`, `setCurrentPhase`) |
+| Change what's drawn per phase | `p5-ui/view.js` |
+| Change hit detection logic | `p5-ui/controller.js` (`findHovered`, `nodePositions`) |
+| Modify React IDE features | `react-ui.js` |
 | Change locked view context | `condition2ContextLines` in `study-config.js` |
 | Reset a participant session | Admin panel at `/admin` |
 | Export response data | Admin panel → download CSV |

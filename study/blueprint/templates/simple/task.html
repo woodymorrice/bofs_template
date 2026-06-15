@@ -1,20 +1,51 @@
-<head>
-    <script src="{{ url_for('blueprint.static', filename='p5.min.js') }}"></script>
-    <script type="module" src="{{ url_for('blueprint.static', filename='canvas/sketch.js') }}"></script>
-    <script type="module" src="{{ url_for('blueprint.static', filename='react-app.js') }}"></script>
+<!--
+    task.html
 
+    The single task page used for all conditions. It hosts two UI containers:
+
+        #study-container — holds the p5 canvas (visible between phases and
+                           during Condition 2 trials)
+        #react-container — holds the VS Code-style React IDE (shown during
+                           Condition 1 trials by startTrial in controller.js)
+
+    controller.js (p5-ui/) drives all phase transitions and switches which
+    container is visible when the trial begins.
+
+    The server (views.py) injects `condition_name` via Jinja2. All other
+    configuration comes from study-config.js.
+-->
+<head>
+    <!-- p5.js must load before p5-ui/controller.js because controller.js
+         calls `new p5(sketch)` as a global. It is NOT imported as an ES module. -->
+    <script src="{{ url_for('blueprint.static', filename='vendor/p5.min.js') }}"></script>
+
+    <!-- Entry point for the p5 canvas (controller, phase state machine, hit detection). -->
+    <script type="module" src="{{ url_for('blueprint.static', filename='p5-ui/controller.js') }}"></script>
+
+    <!-- Entry point for the React VS Code IDE. -->
+    <script type="module" src="{{ url_for('blueprint.static', filename='react-ui.js') }}"></script>
+
+    <!-- BlueprintJS CSS (icon font + component styles). -->
     <link rel="stylesheet" href="https://unpkg.com/@blueprintjs/icons@5/lib/css/blueprint-icons.css" />
     <link rel="stylesheet" href="https://unpkg.com/@blueprintjs/core@5/lib/css/blueprint.css" />
 
-    <!-- This style makes the p5 canvas fill the entire page. -->
     <style>
+        /* Remove default browser margin/padding so both containers fill the
+           viewport edge-to-edge with no gaps. */
         * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        /* #study-container: fixed behind everything; holds the p5 canvas.
+           z-index is unset (default 0) so the React container (z-index 10)
+           renders on top when visible. */
         #study-container {
             position: fixed;
             top: 0; left: 0;
             width: 100vw;
             height: 100vh;
         }
+
+        /* #react-container: fixed on top of the canvas; hidden until the trial
+           starts in Condition 1 (startTrial in controller.js sets display: block). */
         #react-container {
             display: none;
             position: fixed;
@@ -27,39 +58,41 @@
     </style>
 </head>
 <body>
-    <!-- Plain html can be included here to show some text above the task 
-     window. -->
-     <p>Press Enter to enter fullscreen mode and begin the task.</p>
-    <!-- <h1>{{condition_name}} Task</h1>
-    
-    <p>This is a simple custom page. You control the navigation.</p>
-    
-    <p>Use this for tasks, interactive content, or any page where you need
-    full control over when participants can proceed.</p> -->
-    
-    <!-- This script warns participants if they try to leave the page before
-     finishing the task. -->
+    <!-- Static text shown above the canvas during setup. Can be replaced with
+         task-specific instructions or left as-is. -->
+    <p>Press Enter to enter fullscreen mode and begin the task.</p>
+
+    <!-- Warns the participant if they try to navigate away before finishing.
+         The `finished` flag is set to true by controller.js before redirecting
+         to /redirect_next_page so the warning is suppressed on intentional exit. -->
     <script>
         let finished = false;
         window.addEventListener("beforeunload", function (e) {
             if (!finished) {
-                // Trigger the warning dialog
                 e.preventDefault();
                 e.returnValue = "";
             }
         });
     </script>
 
-    <!-- Global variables declared here are available in the p5 sketch. -->
+    <!-- Global variables injected by the Flask template (views.py). These are
+         plain <script> globals — accessible to both controller.js and react-ui.js
+         without any import. Must be declared before the module scripts run.
+
+         condition_name — "Condition 1" or "Condition 2"; drives condition-specific
+                          behaviour in controller.js, react-ui.js, and view.js.
+         order_number   — the participant's condition assignment number from BOFS. -->
     <script id="global-variables">
         const condition_name = "{{condition_name}}";
         const order_number = "{{participant.condition}}";
     </script>
 
-    <!-- This div is used by the p5.js sketch to place the canvas.  -->
+    <!-- p5 renders its canvas as a child of #study-container (set in controller.js
+         p.setup). React mounts into #react-container (set in react-ui.js). -->
     <div id="study-container"></div>
     <div id="react-container"></div>
 
-    <!-- This button links to the next page (may not be necessary). -->
+    <!-- Fallback navigation link. May be removed once the canvas navigation
+         to /redirect_next_page is fully wired. -->
     <p><a href="/redirect_next_page" class="btn btn-primary">Continue</a></p>
 </body>
