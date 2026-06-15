@@ -117,9 +117,12 @@ if (debugMode) window.studyTrialActive = true;
  * without prop-drilling. Published by StudyApp via a Provider wrapper.
  *
  * isThumbview {bool} — true when running Thumbview AND debugMode is off.
- *   - TopNav hides SearchBar (which also disables Ctrl+Shift+P and Ctrl+G).
+ *   - TopNav shows a greyed-out, non-interactive SearchBar placeholder instead
+ *     of the real one (so Ctrl+Shift+P and Ctrl+G are never registered).
+ *   - ActivityBar and Sidebar are rendered at reduced opacity with a
+ *     not-allowed cursor overlay — visible but non-interactive.
  *   - DocumentView disables FindBar and shows only a locked line window.
- *   - StudyApp omits ActivityBar, Sidebar, and TabBar from the render.
+ *   - StudyApp omits TabBar from the render.
  *   - All navigation keyboard shortcuts (Ctrl+F, Ctrl+\, Ctrl+Shift+F) are
  *     silently no-oped.
  *
@@ -717,9 +720,9 @@ function FindBar({ query, onQueryChange, matchCase, wholeWord, useRegex, onToggl
 function TopNav({ allFiles, onSearchSelect, totalLines, onGoToLine }) {
     const { isThumbview } = useContext(AppModeContext);
 
-    // In condition 2, the SearchBar is hidden entirely. Because SearchBar is
-    // not mounted, its useEffect never runs, so the Ctrl+Shift+P and Ctrl+G
-    // global keyboard handlers are also automatically disabled.
+    // In Thumbview a greyed-out, non-interactive placeholder is shown instead
+    // of the real SearchBar. The real SearchBar is never mounted, so its
+    // Ctrl+Shift+P / Ctrl+G keyboard handlers are never registered.
     return html`
         <${Navbar} style=${{ position: "relative" }}>
             <${NavbarGroup} align=${Alignment.LEFT}>
@@ -738,7 +741,24 @@ function TopNav({ allFiles, onSearchSelect, totalLines, onGoToLine }) {
                 <${Button} minimal icon="help" disabled />
                 <${Button} minimal icon="cog" disabled />
             <//>
-            ${!isThumbview && html`
+            ${isThumbview ? html`
+                <div style=${{
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    transform: "translate(-50%, -50%)",
+                    width: 400,
+                    cursor: "not-allowed",
+                }}>
+                    <div style=${{ pointerEvents: "none", opacity: 0.4 }}>
+                        <${InputGroup}
+                            leftIcon="search"
+                            placeholder="Search files...  (Ctrl+Shift+P)"
+                            disabled
+                            style=${{ width: "100%" }} />
+                    </div>
+                </div>
+            ` : html`
                 <${SearchBar}
                     allFiles=${allFiles}
                     onSelect=${onSearchSelect}
@@ -1249,18 +1269,34 @@ function DocumentView({ selectedNode, goToLine, onGoToLineDone, isActive = true,
     const [findCurrentIdx, setFindCurrentIdx] = useState(0);
     const findInputRef = useRef(null);
 
-    // Thumbview locked view: slice to a window of (2 * thumbviewContextLines)
+    // Thumbview locked view: slice to a window of (2 * thumbviewContextLines + 1)
     // lines around lockedLine, positioned so the clicked line sits at
     // thumbviewViewportOffset within the view (0=top, 0.5=centre, 1=bottom).
-    // null = show all lines (condition 1 behaviour).
+    // null = show all lines (Standard behaviour).
     // Line ids (code-line-N) still use the original 1-based file line numbers so
-    // go-to-line flash and find scroll both target the correct elements.
+    // go-to-line flash targets the correct element.
+    // Scrolling is disabled separately via overflowY (isThumbview ? "hidden" : "auto")
+    // on the scroll container — visibleRange only controls which lines are rendered.
+    //
+    // The context is capped to the number of lines that fit in the viewport.
+    // Each line occupies codeFontSize * codeLineHeight px; ~50px is reserved for
+    // the navbar, so available height ≈ window.innerHeight - 50.
     const visibleRange = useMemo(() => {
         if (!isThumbview || lockedLine == null || !selectedNode?.lines) return null;
         const center = lockedLine - 1; // 0-based
-        // Split the total context window according to the viewport offset.
+        // Cap thumbviewContextLines so the total window never exceeds the screen.
+        // Chrome breakdown: navbar ~50 px + scroll-container top padding 24 px +
+        // filename h2 ~28 px + filepath <p> ~34 px = ~136 px above the first code line.
+        // This matches the space the header occupies in both Standard and Thumbview,
+        // so when thumbviewContextLines is set to a large sentinel the Thumbview shows
+        // the same number of code lines as the Standard condition.
+        const lineHeightPx   = codeFontSize * codeLineHeight;
+        const availableLines = Math.floor((window.innerHeight - 136) / lineHeightPx);
+        // totalContext is lines above + lines below (excluding the target line itself).
+        // availableLines - 1 reserves one slot for the target line.
+        const totalContext = Math.min(2 * thumbviewContextLines, Math.max(0, availableLines - 1));
+        // Split according to the viewport offset.
         // offset=0.5 → equal lines above and below (default centre behaviour).
-        const totalContext = 2 * thumbviewContextLines;
         const linesAbove = Math.round(thumbviewViewportOffset * totalContext);
         const linesBelow = totalContext - linesAbove;
         const start = Math.max(0, center - linesAbove);
@@ -1391,7 +1427,7 @@ function DocumentView({ selectedNode, goToLine, onGoToLineDone, isActive = true,
                     inputRef=${findInputRef} />
             `}
 
-            <div style=${{ flex: 1, overflowY: visibleRange ? "hidden" : "auto", padding: 24 }}>
+            <div style=${{ flex: 1, overflowY: isThumbview ? "hidden" : "auto", padding: 24 }}>
 
                 <h2 className="bp5-heading" style=${{ marginBottom: 4 }}>${selectedNode.name}</h2>
                 <p className="bp5-text-muted" style=${{ marginBottom: 16, fontSize: 12 }}>
@@ -1653,7 +1689,7 @@ function TabBar({ tabs, activeIdx, isFocused, side, onTabClick, onTabClose, onTa
  *   focusSide      {"left"|"right"} - which pane receives new file opens
  *
  * Thumbview additions:
- *   isThumbview   {bool}           - derived from window.condition_name + debugMode
+ *   isThumbview   {bool}           - derived from condition_name + debugMode
  *   lockedLine     {number|null}    - target line set by window.studyNavigateTo;
  *                                    passed to DocumentView to engage the locked view
  *
@@ -1665,8 +1701,8 @@ function TabBar({ tabs, activeIdx, isFocused, side, onTabClick, onTabClose, onTa
  */
 function StudyApp() {
     // Derived once from the server-set global and the debugMode config flag.
-    // window.condition_name is safe to read — undefined evaluates to false.
-    const isThumbview = !debugMode && window.condition_name === "Thumbview";
+    // condition_name is a const set by task.html before the module scripts run.
+    const isThumbview = !debugMode && condition_name === "Thumbview";
 
     const [rawTree,       setRawTree]       = useState(null);
     const [activeActivity, setActiveActivity] = useState("Explorer (Ctrl+Shift+E)");
@@ -1705,9 +1741,19 @@ function StudyApp() {
 
     // --- Pane helpers ---
 
-    // Open a file in the focused pane: switch to its tab if already open,
-    // otherwise append a new tab and activate it.
+    // Open a file in the focused pane.
+    //
+    // Thumbview: replaces the current tab rather than appending, so only one
+    // file is ever open at a time. The sidebar and tree are hidden in Thumbview
+    // so this is only reached via window.studyNavigateTo (canvas click).
+    //
+    // Standard: switches to the tab if already open, otherwise appends a new tab.
     function openFile(node) {
+        if (isThumbview) {
+            setLeftTabs([node]);
+            setLeftActive(0);
+            return;
+        }
         if (focusSide === "left") {
             const idx = leftTabs.findIndex(t => t.id === node.id);
             if (idx !== -1) { setLeftActive(idx); return; }
@@ -1923,19 +1969,30 @@ function StudyApp() {
                     onGoToLine=${handleGoToLine} />
                 <div style=${{ display: "flex", flex: 1, overflow: "hidden" }}>
 
-                    <!-- ActivityBar and Sidebar are hidden in condition 2:
-                         all navigation happens in the p5 spatial overview. -->
-                    ${!isThumbview && html`
-                        <${ActivityBar} activeItem=${activeActivity} onItemClick=${setActiveActivity} />
-                        <${Sidebar}
-                            activeActivity=${activeActivity}
-                            rawTree=${rawTree}
-                            revealNodeId=${revealNodeId}
-                            onRevealComplete=${() => setRevealNodeId(null)}
-                            onSelect=${openFile}
-                            allFiles=${allFiles}
-                            onSelectSearchResult=${handleSelectSearchResult} />
-                    `}
+                    <!-- ActivityBar and Sidebar are always rendered. In Thumbview
+                         they are shown at reduced opacity with a transparent
+                         not-allowed overlay so they appear disabled but remain
+                         visible — navigation happens via the p5 canvas instead. -->
+                    <div style=${{ position: "relative", display: "flex", flexShrink: 0 }}>
+                        <div style=${{
+                            display: "flex",
+                            opacity: isThumbview ? 0.4 : 1,
+                            pointerEvents: isThumbview ? "none" : "auto",
+                        }}>
+                            <${ActivityBar} activeItem=${activeActivity} onItemClick=${setActiveActivity} />
+                            <${Sidebar}
+                                activeActivity=${activeActivity}
+                                rawTree=${rawTree}
+                                revealNodeId=${revealNodeId}
+                                onRevealComplete=${() => setRevealNodeId(null)}
+                                onSelect=${openFile}
+                                allFiles=${allFiles}
+                                onSelectSearchResult=${handleSelectSearchResult} />
+                        </div>
+                        ${isThumbview && html`
+                            <div style=${{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, cursor: "not-allowed" }} />
+                        `}
+                    </div>
 
                     <!-- Editor area: one or two panes (split disabled in condition 2) -->
                     <div style=${{ flex: 1, display: "flex", overflow: "hidden" }}>
@@ -2014,6 +2071,9 @@ function StudyApp() {
     document.addEventListener("contextmenu", e => {
         if (!window.studyTrialActive) return;
         e.preventDefault();
+        // In Standard condition, all navigation happens in the React IDE; the
+        // canvas should remain hidden. Suppress the context menu but do not swap.
+        if (!debugMode && condition_name !== "Thumbview") return;
         const reactVisible = getComputedStyle(reactEl).display !== "none";
         reactEl.style.display  = reactVisible ? "none"  : "block";
         canvasEl.style.display = reactVisible ? "block" : "none";

@@ -6,10 +6,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Runs an HCI study comparing two code navigation interfaces. Participants experience both conditions (counterbalanced within-subjects design):
 
-- **Standard**: VS Code-style IDE — file tree, tabbed editor, project search, in-file find, split pane, command palette
-- **Thumbview**: Spatial canvas overview — p5.js rendering of a pre-built thumbview of the codebase; hovering highlights files; clicking opens them in the locked React document view
+- **Standard condition**: participants navigate using the Standard interface — a full VS Code-style IDE (file tree, tabbed editor, project search, in-file find, split pane, command palette).
+- **Thumbview condition**: participants navigate using the Thumbview — a spatial canvas overview rendered by p5.js. A simplified version of the Standard interface is also present in this condition, but only to display the currently open file; it is not used for navigation.
 
 BOFS (Bride of Frankensystem) handles routing, session management, condition assignment, questionnaires, and admin. Flask serves the study; the UI is React (no build step — ESM via esm.sh, `htm` tagged templates instead of JSX). p5.js renders the canvas in the Thumbview condition.
+
+## Terminology
+
+These terms are used consistently throughout the codebase and in conversation:
+
+- **Thumbview** — the spatial overview interface: a p5.js canvas rendering a bird's-eye view of the codebase. Displayed during the trial phase in the Thumbview condition. It is the only navigation tool available in that condition; participants click on files in the canvas to open them.
+
+- **Standard interface** — the React-based VS Code-style IDE (`react-ui.js`). In the Standard condition it is the primary navigation tool (full feature set). In the Thumbview condition a locked-down version of the same component is used purely to display the file the participant has navigated to — no file tree, no search, no tabs.
+
+- **Standard condition** / **Thumbview condition** — the two within-subjects conditions. Condition labels in BOFS and `config.toml` are `"Standard"` and `"Thumbview"`; these flow through as the `condition_name` global in JS.
+
+- **Trial phase** — the TRIAL entry in the phase state machine (`Phase.TRIAL` in `controller.js`). This is when the participant performs the navigation task. Both the Thumbview and the Standard interface are active only during this phase.
 
 ## Running the study
 
@@ -247,7 +259,7 @@ Single source of truth for all front-end configuration. Edit here only; all othe
 | `codeFontSize` | Code font size in px |
 | `codeLineHeight` | Line height multiplier |
 | `debugMode` | Enable all features regardless of condition; **must be `false` for participants** |
-| `thumbviewContextLines` | Lines above/below target in locked view (default 20) |
+| `thumbviewContextLines` | Lines of context above/below target in locked view; capped to however many lines fit the screen. Default 500 (sentinel) — fills the screen to match Standard condition. Set to e.g. 20 for a tighter 41-line window. |
 | `thumbviewViewportOffset` | Where the clicked line sits in the locked view: 0.0=top, 0.5=centre, 1.0=bottom (default 0.5) |
 
 ## Dataset format

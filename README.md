@@ -251,8 +251,10 @@ export const codeLineHeight = 1.6;
 export const debugMode = false;
 
 // Lines of context above and below the target in the Thumbview locked view.
-// Total lines shown = (thumbviewContextLines * 2) + 1
-export const thumbviewContextLines = 20;
+// Total = (thumbviewContextLines * 2) + 1, capped to lines that fit on screen.
+// Default 500 (sentinel) fills the screen, matching the Standard condition.
+// Set lower (e.g. 20) for a tighter 41-line window.
+export const thumbviewContextLines = 500;
 
 // Where the clicked line sits in the locked view: 0.0=top, 0.5=centre, 1.0=bottom.
 export const thumbviewViewportOffset = 0.5;
@@ -314,7 +316,7 @@ In the Thumbview condition, the p5 canvas is the primary navigation environment.
 
 When `window.studyNavigateTo` is called (see below), the DocumentView:
 1. Opens the target file
-2. Renders a window of `2 * thumbviewContextLines` lines around the target, positioned so the target sits at `thumbviewViewportOffset` within the view (0=top, 0.5=centre, 1=bottom; default 0.5)
+2. Renders a window of `2 * thumbviewContextLines` lines around the target (capped to however many lines fit on screen), positioned so the target sits at `thumbviewViewportOffset` within the view (0=top, 0.5=centre, 1=bottom; default 0.5)
 3. Sets `overflow: hidden` — the participant cannot scroll
 4. Flashes the target line with a brief yellow highlight
 

@@ -90,10 +90,16 @@ export const debugMode = false;
 
 /**
  * Lines of context shown above and below the target line in the Thumbview
- * locked document view. E.g. 20 → 41 lines total (20 + target + 20).
- * Increase for more surrounding context; decrease for a tighter focus.
+ * locked document view. The total visible lines = (thumbviewContextLines * 2) + 1,
+ * capped to however many lines fit in the viewport.
+ *
+ * Set to a large sentinel (default 500) to always fill the screen — the cap
+ * ensures the view never overflows, and the result matches the number of code
+ * lines the Standard condition shows at the same screen size.
+ *
+ * To show fewer lines (e.g. 20 above + target + 20 below = 41 total), set to 20.
  */
-export const thumbviewContextLines = 20;
+export const thumbviewContextLines = 500;
 
 /**
  * Where the clicked line appears within the locked document view in the
