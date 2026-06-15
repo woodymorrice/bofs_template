@@ -36,20 +36,20 @@ blueprint = Blueprint(
 # MARK: Routes
 # ---------------------------------------------------------------------------
 
-@blueprint.route("/task/condition1", methods=["GET"])
+@blueprint.route("/task/standard", methods=["GET"])
 @verify_correct_page
 @verify_session_valid
-def get_condition1():
-    """Serves the task page for Condition 1 (VS Code-style IDE)."""
-    return task("Condition 1")
+def get_standard():
+    """Serves the task page for the Standard condition (VS Code-style IDE)."""
+    return task("Standard")
 
 
-@blueprint.route("/task/condition2", methods=["GET"])
+@blueprint.route("/task/thumbview", methods=["GET"])
 @verify_correct_page
 @verify_session_valid
-def get_condition2():
-    """Serves the task page for Condition 2 (spatial canvas overview)."""
-    return task("Condition 2")
+def get_thumbview():
+    """Serves the task page for the Thumbview condition (spatial canvas overview)."""
+    return task("Thumbview")
 
 
 # @blueprint.route("/task/condition3", methods=["GET"])
@@ -69,7 +69,7 @@ def task(condition_name: str):
     page as a Jinja2 variable and becomes the `condition_name` global in JS.
 
     Args:
-        condition_name: "Condition 1", "Condition 2", etc. Must match the label
+        condition_name: "Standard", "Thumbview", etc. Must match the label
                         used in config.toml's CONDITIONS list.
     """
     return render_template(

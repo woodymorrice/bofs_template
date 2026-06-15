@@ -47,8 +47,8 @@ import {
     codeFontSize,
     codeLineHeight,
     debugMode,
-    condition2ContextLines,
-    condition2ViewportOffset,
+    thumbviewContextLines,
+    thumbviewViewportOffset,
 } from "./study-config.js";
 
 const html = htm.bind(React.createElement);
@@ -116,7 +116,7 @@ if (debugMode) window.studyTrialActive = true;
  * AppModeContext — carries the current condition flags to every component
  * without prop-drilling. Published by StudyApp via a Provider wrapper.
  *
- * isCondition2 {bool} — true when running Condition 2 AND debugMode is off.
+ * isThumbview {bool} — true when running Thumbview AND debugMode is off.
  *   - TopNav hides SearchBar (which also disables Ctrl+Shift+P and Ctrl+G).
  *   - DocumentView disables FindBar and shows only a locked line window.
  *   - StudyApp omits ActivityBar, Sidebar, and TabBar from the render.
@@ -126,7 +126,7 @@ if (debugMode) window.studyTrialActive = true;
  * Adding a new condition: add a field here, publish it in StudyApp, and
  * consume it with useContext(AppModeContext) in whichever component needs it.
  */
-const AppModeContext = React.createContext({ isCondition2: false });
+const AppModeContext = React.createContext({ isThumbview: false });
 
 // ---------------------------------------------------------------------------
 // MARK: Tree utility functions
@@ -715,7 +715,7 @@ function FindBar({ query, onQueryChange, matchCase, wholeWord, useRegex, onToggl
  *   onGoToLine     {function}     - called with a line number from go-to-line
  */
 function TopNav({ allFiles, onSearchSelect, totalLines, onGoToLine }) {
-    const { isCondition2 } = useContext(AppModeContext);
+    const { isThumbview } = useContext(AppModeContext);
 
     // In condition 2, the SearchBar is hidden entirely. Because SearchBar is
     // not mounted, its useEffect never runs, so the Ctrl+Shift+P and Ctrl+G
@@ -738,7 +738,7 @@ function TopNav({ allFiles, onSearchSelect, totalLines, onGoToLine }) {
                 <${Button} minimal icon="help" disabled />
                 <${Button} minimal icon="cog" disabled />
             <//>
-            ${!isCondition2 && html`
+            ${!isThumbview && html`
                 <${SearchBar}
                     allFiles=${allFiles}
                     onSelect=${onSearchSelect}
@@ -1235,7 +1235,7 @@ function Sidebar({ activeActivity, rawTree, revealNodeId, onRevealComplete, onSe
  *                                    the locked view on; null in condition 1
  */
 function DocumentView({ selectedNode, goToLine, onGoToLineDone, isActive = true, lockedLine = null }) {
-    const { isCondition2 } = useContext(AppModeContext);
+    const { isThumbview } = useContext(AppModeContext);
 
     // --- go-to-line ---
     const [flashLine, setFlashLine] = useState(null);
@@ -1249,24 +1249,24 @@ function DocumentView({ selectedNode, goToLine, onGoToLineDone, isActive = true,
     const [findCurrentIdx, setFindCurrentIdx] = useState(0);
     const findInputRef = useRef(null);
 
-    // Condition 2 locked view: slice to a window of (2 * condition2ContextLines)
+    // Thumbview locked view: slice to a window of (2 * thumbviewContextLines)
     // lines around lockedLine, positioned so the clicked line sits at
-    // condition2ViewportOffset within the view (0=top, 0.5=centre, 1=bottom).
+    // thumbviewViewportOffset within the view (0=top, 0.5=centre, 1=bottom).
     // null = show all lines (condition 1 behaviour).
     // Line ids (code-line-N) still use the original 1-based file line numbers so
     // go-to-line flash and find scroll both target the correct elements.
     const visibleRange = useMemo(() => {
-        if (!isCondition2 || lockedLine == null || !selectedNode?.lines) return null;
+        if (!isThumbview || lockedLine == null || !selectedNode?.lines) return null;
         const center = lockedLine - 1; // 0-based
         // Split the total context window according to the viewport offset.
         // offset=0.5 → equal lines above and below (default centre behaviour).
-        const totalContext = 2 * condition2ContextLines;
-        const linesAbove = Math.round(condition2ViewportOffset * totalContext);
+        const totalContext = 2 * thumbviewContextLines;
+        const linesAbove = Math.round(thumbviewViewportOffset * totalContext);
         const linesBelow = totalContext - linesAbove;
         const start = Math.max(0, center - linesAbove);
         const end   = Math.min(selectedNode.lines.length - 1, center + linesBelow);
         return { start, end };
-    }, [isCondition2, lockedLine, selectedNode]);
+    }, [isThumbview, lockedLine, selectedNode]);
 
     // Syntax-highlighted HTML for each line in the current file.
     // splitHighlightedLines highlights the entire file at once so that
@@ -1324,7 +1324,7 @@ function DocumentView({ selectedNode, goToLine, onGoToLineDone, isActive = true,
     useEffect(() => {
         function onKeyDown(e) {
             if (e.ctrlKey && !e.shiftKey && e.key === "f") {
-                if (!selectedNode || !isActive || isCondition2) return;
+                if (!selectedNode || !isActive || isThumbview) return;
                 e.preventDefault();
                 setFindVisible(true);
                 requestAnimationFrame(() => { findInputRef.current?.focus(); findInputRef.current?.select(); });
@@ -1342,7 +1342,7 @@ function DocumentView({ selectedNode, goToLine, onGoToLineDone, isActive = true,
         if (!goToLine) return;
         const el = document.getElementById(`code-line-${goToLine}`);
         if (!el) return;
-        if (!isCondition2) el.scrollIntoView({ block: "center" });
+        if (!isThumbview) el.scrollIntoView({ block: "center" });
         setFlashLine(goToLine);
         const timer = setTimeout(() => { setFlashLine(null); onGoToLineDone?.(); }, 1200);
         return () => clearTimeout(timer);
@@ -1362,7 +1362,7 @@ function DocumentView({ selectedNode, goToLine, onGoToLineDone, isActive = true,
                 <${NonIdealState}
                     icon="document"
                     title="No file selected"
-                    description=${isCondition2
+                    description=${isThumbview
                         ? "Use the spatial overview to navigate to a file location."
                         : "Select a file from the sidebar or use Ctrl+Shift+P to search."} />
             </div>
@@ -1375,7 +1375,7 @@ function DocumentView({ selectedNode, goToLine, onGoToLineDone, isActive = true,
     return html`
         <div style=${{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
 
-            ${findVisible && !isCondition2 && html`
+            ${findVisible && !isThumbview && html`
                 <${FindBar}
                     query=${findQuery}
                     onQueryChange=${setFindQuery}
@@ -1652,8 +1652,8 @@ function TabBar({ tabs, activeIdx, isFocused, side, onTabClick, onTabClose, onTa
  *   isSplit        {bool}           - whether the right pane is visible
  *   focusSide      {"left"|"right"} - which pane receives new file opens
  *
- * Condition 2 additions:
- *   isCondition2   {bool}           - derived from window.condition_name + debugMode
+ * Thumbview additions:
+ *   isThumbview   {bool}           - derived from window.condition_name + debugMode
  *   lockedLine     {number|null}    - target line set by window.studyNavigateTo;
  *                                    passed to DocumentView to engage the locked view
  *
@@ -1666,7 +1666,7 @@ function TabBar({ tabs, activeIdx, isFocused, side, onTabClick, onTabClose, onTa
 function StudyApp() {
     // Derived once from the server-set global and the debugMode config flag.
     // window.condition_name is safe to read — undefined evaluates to false.
-    const isCondition2 = !debugMode && window.condition_name === "Condition 2";
+    const isThumbview = !debugMode && window.condition_name === "Thumbview";
 
     const [rawTree,       setRawTree]       = useState(null);
     const [activeActivity, setActiveActivity] = useState("Explorer (Ctrl+Shift+E)");
@@ -1686,7 +1686,7 @@ function StudyApp() {
     const [isSplit,       setIsSplit]       = useState(false);
     const [focusSide,     setFocusSide]     = useState("left");
 
-    // Condition 2: line that DocumentView's locked view centres on.
+    // Thumbview: line that DocumentView's locked view centres on.
     const [lockedLine, setLockedLine] = useState(null);
 
     useEffect(() => {
@@ -1831,7 +1831,7 @@ function StudyApp() {
     useEffect(() => {
         function onKeyDown(e) {
             if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "f") {
-                if (isCondition2) return;
+                if (isThumbview) return;
                 e.preventDefault();
                 setActiveActivity("Search (Ctrl+Shift+F)");
             }
@@ -1847,7 +1847,7 @@ function StudyApp() {
     useEffect(() => {
         function onKeyDown(e) {
             if (e.ctrlKey && !e.shiftKey && e.key === "\\") {
-                if (isCondition2) return;
+                if (isThumbview) return;
                 e.preventDefault();
                 splitMoveTab();
             }
@@ -1914,7 +1914,7 @@ function StudyApp() {
     }
 
     return html`
-        <${AppModeContext.Provider} value=${{ isCondition2 }}>
+        <${AppModeContext.Provider} value=${{ isThumbview }}>
             <div style=${{ display: "flex", flexDirection: "column", height: "100%" }}>
                 <${TopNav}
                     allFiles=${allFiles}
@@ -1925,7 +1925,7 @@ function StudyApp() {
 
                     <!-- ActivityBar and Sidebar are hidden in condition 2:
                          all navigation happens in the p5 spatial overview. -->
-                    ${!isCondition2 && html`
+                    ${!isThumbview && html`
                         <${ActivityBar} activeItem=${activeActivity} onItemClick=${setActiveActivity} />
                         <${Sidebar}
                             activeActivity=${activeActivity}
@@ -1944,7 +1944,7 @@ function StudyApp() {
                         <div
                             onClick=${() => setFocusSide("left")}
                             style=${{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
-                            ${!isCondition2 && html`
+                            ${!isThumbview && html`
                                 <${TabBar}
                                     tabs=${leftTabs}
                                     activeIdx=${leftActive}
@@ -1959,10 +1959,10 @@ function StudyApp() {
                                 goToLine=${leftGoToLine}
                                 onGoToLineDone=${() => setLeftGoToLine(null)}
                                 isActive=${focusSide === "left"}
-                                lockedLine=${isCondition2 ? lockedLine : null} />
+                                lockedLine=${isThumbview ? lockedLine : null} />
                         </div>
 
-                        ${!isCondition2 && isSplit && html`
+                        ${!isThumbview && isSplit && html`
                             <div style=${{ width: 1, background: "#c5cbd3", flexShrink: 0 }} />
 
                             <!-- Right pane -->

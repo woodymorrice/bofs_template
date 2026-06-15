@@ -82,10 +82,10 @@ export function drawPreTrial(p) {
 /**
  * Renders the TRIAL phase. Behaviour differs by condition:
  *
- *   Condition 1 — draws the overview image only; the React IDE (shown by
+ *   Standard — draws the overview image only; the React IDE (shown by
  *                 startTrial in controller.js) is the primary interface.
  *
- *   Condition 2 — draws the overview image with a hover highlight rect and a
+ *   Thumbview — draws the overview image with a hover highlight rect and a
  *                 debug cursor circle. hoverInfo comes from findHovered() in
  *                 controller.js; it is null when the mouse is not over any file.
  *
@@ -100,12 +100,12 @@ export function drawPreTrial(p) {
  *   All position/dimension values are in image-pixel space.
  */
 export function drawTrial(p, overview, layout, hoverInfo) {
-    if (condition_name === "Condition 1") {
+    if (condition_name === "Standard") {
         p.background([0, 0, 0]);
         // Scale the overview image to fill the entire canvas.
         p.image(overview, 0, 0, p.windowWidth, p.windowHeight);
 
-    } else if (condition_name === "Condition 2") {
+    } else if (condition_name === "Thumbview") {
         // Compute scale factors to convert image-pixel coordinates to screen pixels.
         const widthScale  = p.windowWidth  / overview.width;
         const heightScale = p.windowHeight / overview.height;

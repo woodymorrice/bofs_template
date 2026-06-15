@@ -89,15 +89,15 @@ export const codeLineHeight = 1.6;
 export const debugMode = false;
 
 /**
- * Lines of context shown above and below the target line in the Condition 2
+ * Lines of context shown above and below the target line in the Thumbview
  * locked document view. E.g. 20 → 41 lines total (20 + target + 20).
  * Increase for more surrounding context; decrease for a tighter focus.
  */
-export const condition2ContextLines = 20;
+export const thumbviewContextLines = 20;
 
 /**
- * Where the clicked line appears within the locked document view in Condition 2.
- * A fraction from 0.0 (top of the view) to 1.0 (bottom of the view).
+ * Where the clicked line appears within the locked document view in the
+ * Thumbview condition. A fraction from 0.0 (top of the view) to 1.0 (bottom).
  *
  * 0.5 (default) — clicked line is vertically centred.
  * 0.0           — clicked line appears at the top; all context lines are below.
@@ -107,4 +107,4 @@ export const condition2ContextLines = 20;
  * clamped to the file boundaries, so the offset is honoured as closely as
  * possible without showing lines outside the file.
  */
-export const condition2ViewportOffset = 0.5;
+export const thumbviewViewportOffset = 0.5;

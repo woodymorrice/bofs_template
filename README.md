@@ -1,6 +1,6 @@
 # Interfile Study — Researcher & Developer Guide
 
-A within-subjects HCI study platform for comparing code navigation techniques. Condition 1 gives participants a full VS Code-style IDE (the React UI). Condition 2 gives participants a spatial overview of the codebase (p5.js canvas) as their primary navigation tool, with a read-only React document view that opens when they navigate to a location.
+A within-subjects HCI study platform for comparing code navigation techniques. The Standard condition gives participants a full VS Code-style IDE (the React UI). The Thumbview condition gives participants a spatial overview of the codebase (p5.js canvas) as their primary navigation tool, with a read-only React document view that opens when they navigate to a location.
 
 ---
 
@@ -12,10 +12,10 @@ A within-subjects HCI study platform for comparing code navigation techniques. C
 4. [Conditions Overview](#4-conditions-overview)
 5. [Dataset Format](#5-dataset-format)
 6. [Configuration Reference (study-config.js)](#6-configuration-reference-study-configjs)
-7. [Condition 1 — Standard IDE](#7-condition-1--standard-ide)
-8. [Condition 2 — Spatial Overview](#8-condition-2--spatial-overview)
+7. [Standard Condition — VS Code IDE](#7-standard-condition--vs-code-ide)
+8. [Thumbview Condition — Spatial Overview](#8-thumbview-condition--spatial-overview)
 9. [Debug Mode](#9-debug-mode)
-10. [Wiring the p5 Canvas (Condition 2)](#10-wiring-the-p5-canvas-condition-2)
+10. [Wiring the p5 Canvas (Thumbview)](#10-wiring-the-p5-canvas-thumbview)
 11. [Modifying the React UI](#11-modifying-the-react-ui)
 12. [Task Phases](#12-task-phases)
 13. [Questionnaires](#13-questionnaires)
@@ -61,16 +61,16 @@ interfile_study/
         ├── views.py                        # Flask routes for each condition's task page
         ├── questionnaires/
         │   ├── demographics.json           # Pre-study demographic questions
-        │   ├── condition1.json             # Post-condition questionnaire (Condition 1)
-        │   ├── condition2.json             # Post-condition questionnaire (Condition 2)
+        │   ├── standard.json             # Post-condition questionnaire (Standard)
+        │   ├── thumbview.json             # Post-condition questionnaire (Thumbview)
         │   ├── post_condition.json         # Generic post-condition template
         │   └── final.json                  # End-of-study questionnaire
         ├── templates/
         │   ├── simple/task.html            # The task page (loaded for both conditions)
         │   └── instructions/
         │       ├── introduction.html       # Pre-study introduction page
-        │       ├── condition1.html         # Condition 1 instructions
-        │       └── condition2.html         # Condition 2 instructions
+        │       ├── standard.html         # Standard instructions
+        │       └── thumbview.html         # Thumbview instructions
         └── static/
             ├── study-config.js             # *** YOUR MAIN CONFIGURATION FILE ***
             ├── react-ui.js                 # VS Code-style React UI (all components)
@@ -100,8 +100,8 @@ The dataset folder name is configured in `study-config.js` via `export const dat
 
 ```toml
 CONDITIONS = [
-    {label='Condition 1', enabled=true},
-    {label='Condition 2', enabled=true},
+    {label='Standard', enabled=true},
+    {label='Thumbview', enabled=true},
 ]
 ```
 
@@ -130,7 +130,7 @@ BOFS assigns participants to conditions in a balanced way. The `label` values he
 
 ## 4. Conditions Overview
 
-| | Condition 1 | Condition 2 |
+| | Standard | Thumbview |
 |---|---|---|
 | Primary navigation | React IDE (file tree, search bar, find) | p5 spatial overview (canvas) |
 | Sidebar & file tree | Visible, fully interactive | Hidden |
@@ -250,19 +250,19 @@ export const codeLineHeight = 1.6;
 // MUST be false before running participants.
 export const debugMode = false;
 
-// Lines of context above and below the target in Condition 2's locked view.
-// Total lines shown = (condition2ContextLines * 2) + 1
-export const condition2ContextLines = 20;
+// Lines of context above and below the target in the Thumbview locked view.
+// Total lines shown = (thumbviewContextLines * 2) + 1
+export const thumbviewContextLines = 20;
 
 // Where the clicked line sits in the locked view: 0.0=top, 0.5=centre, 1.0=bottom.
-export const condition2ViewportOffset = 0.5;
+export const thumbviewViewportOffset = 0.5;
 ```
 
 **To load a Google Font for code:** add a `<link>` tag in `task.html` and then reference the font name in `codeFont`.
 
 ---
 
-## 7. Condition 1 — Standard IDE
+## 7. Standard Condition — VS Code IDE
 
 The React UI is a VS Code-style interface with the following components:
 
@@ -301,9 +301,9 @@ Files appear in the Explorer sidebar. Clicking a file opens it in the focused pa
 
 ---
 
-## 8. Condition 2 — Spatial Overview
+## 8. Thumbview Condition — Spatial Overview
 
-In Condition 2, the p5 canvas is the primary navigation environment. The React UI is stripped down to a read-only document viewer.
+In the Thumbview condition, the p5 canvas is the primary navigation environment. The React UI is stripped down to a read-only document viewer.
 
 ### What the stripped React UI shows
 - The TopNav bar (no search bar)
@@ -314,7 +314,7 @@ In Condition 2, the p5 canvas is the primary navigation environment. The React U
 
 When `window.studyNavigateTo` is called (see below), the DocumentView:
 1. Opens the target file
-2. Renders a window of `2 * condition2ContextLines` lines around the target, positioned so the target sits at `condition2ViewportOffset` within the view (0=top, 0.5=centre, 1=bottom; default 0.5)
+2. Renders a window of `2 * thumbviewContextLines` lines around the target, positioned so the target sits at `thumbviewViewportOffset` within the view (0=top, 0.5=centre, 1=bottom; default 0.5)
 3. Sets `overflow: hidden` — the participant cannot scroll
 4. Flashes the target line with a brief yellow highlight
 
@@ -335,7 +335,7 @@ Set `debugMode = true` in `study-config.js` to test both conditions without chan
 - Sets `window.studyTrialActive = true` immediately on page load → the right-click canvas toggle works without waiting for the trial to start
 - Skips the automatic canvas→React UI switch inside `window.studyNavigateTo` → you can call it from the browser console while the React UI is visible
 
-**Testing Condition 2 navigation from the browser console:**
+**Testing Thumbview navigation from the browser console:**
 
 ```js
 // Open a specific file and lock to line 42
@@ -351,7 +351,7 @@ window.studyNavigateTo("main.py", null);
 
 ---
 
-## 10. Wiring the p5 Canvas (Condition 2)
+## 10. Wiring the p5 Canvas (Thumbview)
 
 The p5 sketch in `p5-ui/controller.js` needs to call `window.studyNavigateTo(nodeId, lineNum)` when the participant selects a file location in the canvas.
 
@@ -506,7 +506,7 @@ In `DocumentView` in `react-ui.js`, find the `NonIdealState` block. The `descrip
 
 **To end the trial and advance:** in `controller.js`, when the participant completes the task, call `setCurrentPhase(Phase.POST_TRIAL)` (or have them press Space, which is the current default).
 
-The `drawTrial` function in `view.js` receives `overview`, `layout`, and `hoverInfo` — use these to implement the spatial overview UI for Condition 2.
+The `drawTrial` function in `view.js` receives `overview`, `layout`, and `hoverInfo` — use these to implement the spatial overview UI for the Thumbview condition.
 
 ---
 
@@ -602,7 +602,7 @@ From the admin panel, use the Download button to export CSV. Column names match 
 - [ ] Update instruction pages in `study/blueprint/templates/instructions/`
 - [ ] Set a strong `ADMIN_PASSWORD` in `config.toml`
 - [ ] Test the full study flow as a participant (consent → task → questionnaire → end)
-- [ ] Test Condition 1 and Condition 2 separately by manually visiting `/task/condition1` and `/task/condition2`
+- [ ] Test Standard and Thumbview separately by manually visiting `/task/standard` and `/task/thumbview`
 - [ ] Verify `window.studyNavigateTo` works from the browser console in debug mode
 - [ ] Confirm the canvas-to-React switch works when `window.studyNavigateTo` is called during a real trial
 

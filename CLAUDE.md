@@ -6,10 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Runs an HCI study comparing two code navigation interfaces. Participants experience both conditions (counterbalanced within-subjects design):
 
-- **Condition 1**: VS Code-style IDE — file tree, tabbed editor, project search, in-file find, split pane, command palette
-- **Condition 2**: Spatial canvas overview — p5.js rendering of a pre-built thumbview of the codebase; hovering highlights files; clicking opens them in the locked React document view
+- **Standard**: VS Code-style IDE — file tree, tabbed editor, project search, in-file find, split pane, command palette
+- **Thumbview**: Spatial canvas overview — p5.js rendering of a pre-built thumbview of the codebase; hovering highlights files; clicking opens them in the locked React document view
 
-BOFS (Bride of Frankensystem) handles routing, session management, condition assignment, questionnaires, and admin. Flask serves the study; the UI is React (no build step — ESM via esm.sh, `htm` tagged templates instead of JSX). p5.js renders the canvas in Condition 2.
+BOFS (Bride of Frankensystem) handles routing, session management, condition assignment, questionnaires, and admin. Flask serves the study; the UI is React (no build step — ESM via esm.sh, `htm` tagged templates instead of JSX). p5.js renders the canvas in the Thumbview condition.
 
 ## Running the study
 
@@ -148,8 +148,8 @@ study/
           overview.png           # Pre-rendered canvas image (3840×2160)
     questionnaires/
       demographics.json
-      condition1.json
-      condition2.json
+      standard.json
+      thumbview.json
       final.json
 ```
 
@@ -201,7 +201,7 @@ Node coordinates in `root.json` are in **image-pixel space** (scaled by `widthSc
 
 `task.html` sets these before the module scripts load; they are accessed as globals inside controller.js:
 
-- `condition_name` — `"Condition 1"` or `"Condition 2"` (Jinja2 injected)
+- `condition_name` — `"Standard"` or `"Thumbview"` (Jinja2 injected)
 - `order_number` — participant's condition assignment number
 - `finished` — set to `true` before navigating away to suppress the beforeunload warning
 
@@ -209,16 +209,16 @@ Node coordinates in `root.json` are in **image-pixel space** (scaled by `widthSc
 
 `startTrial()` is idempotent (guarded by `trialStarted`). It is called every frame from `p.draw` during the TRIAL phase, but only executes setup logic once. It sets `window.studyTrialActive = true` and shows/hides the appropriate container.
 
-- Condition 1: hides `#study-container`, shows `#react-container` (React IDE takes over)
-- Condition 2: hides `#react-container`, shows `#study-container` (canvas remains)
+- Standard: hides `#study-container`, shows `#react-container` (React IDE takes over)
+- Thumbview: hides `#react-container`, shows `#study-container` (canvas remains)
 
-In Condition 2, left-clicking a hovered file in the canvas calls `window.studyNavigateTo(nodeId, lineNum)`, which opens the file in the React UI and switches the visible container. `p.mouseClicked` in `controller.js` handles this; hit detection is re-run at click time using `findHovered()`, and the click y-coordinate is converted to a 1-based line number via `lineFromClick()` (both in `utils.js`). `lineFromClick` accumulates column heights so that multi-column files map continuously from top of column 0 to bottom of the last column.
+In the Thumbview condition, left-clicking a hovered file in the canvas calls `window.studyNavigateTo(nodeId, lineNum)`, which opens the file in the React UI and switches the visible container. `p.mouseClicked` in `controller.js` handles this; it guards on `studyContainer.style.display !== "none"` so that clicks inside the React document view (which overlays the canvas) never trigger spurious file navigation. Hit detection uses `findHovered()` and the click y-coordinate is converted to a 1-based line number via `lineFromClick()` (both in `utils.js`). `lineFromClick` accumulates column heights so that multi-column files map continuously from top of column 0 to bottom of the last column.
 
 ### React UI (react-ui.js)
 
 Single-file, no build step. Uses `htm` tagged template literals as JSX substitute. Key exported surface:
 
-- `window.studyNavigateTo(nodeId, lineNum)` — called by the p5 canvas when a user clicks a file; opens the file in React, locks the view to `±condition2ContextLines` lines around `lineNum`, flashes the target line, and switches the container to the React IDE (unless `debugMode` is true)
+- `window.studyNavigateTo(nodeId, lineNum)` — called by the p5 canvas when a user clicks a file; opens the file in React, locks the view to `±thumbviewContextLines` lines around `lineNum`, flashes the target line, and switches the container to the React IDE (unless `debugMode` is true)
 
 Syntax highlighting uses `splitHighlightedLines(lines, language)` which highlights the full file at once (not line by line) so multi-line tokens like Python docstrings and block comments render correctly. The HTML output is split back into per-line fragments while tracking open `<span>` tags across line boundaries.
 
@@ -247,8 +247,8 @@ Single source of truth for all front-end configuration. Edit here only; all othe
 | `codeFontSize` | Code font size in px |
 | `codeLineHeight` | Line height multiplier |
 | `debugMode` | Enable all features regardless of condition; **must be `false` for participants** |
-| `condition2ContextLines` | Lines above/below target in locked view (default 20) |
-| `condition2ViewportOffset` | Where the clicked line sits in the locked view: 0.0=top, 0.5=centre, 1.0=bottom (default 0.5) |
+| `thumbviewContextLines` | Lines above/below target in locked view (default 20) |
+| `thumbviewViewportOffset` | Where the clicked line sits in the locked view: 0.0=top, 0.5=centre, 1.0=bottom (default 0.5) |
 
 ## Dataset format
 
@@ -316,6 +316,6 @@ After making any change, briefly explain:
 | Change what's drawn per phase | `p5-ui/view.js` |
 | Change hit detection logic | `p5-ui/controller.js` (`findHovered`, `nodePositions`) |
 | Modify React IDE features | `react-ui.js` |
-| Change locked view context | `condition2ContextLines` in `study-config.js` |
+| Change locked view context | `thumbviewContextLines` in `study-config.js` |
 | Reset a participant session | Admin panel at `/admin` |
 | Export response data | Admin panel → download CSV |

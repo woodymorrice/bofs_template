@@ -22,8 +22,8 @@ EXTERNAL_ID_PROMPT = "Please enter your participant ID from the recruitment plat
 
 # Conditions - participants will be randomly assigned
 CONDITIONS = [
-    {label='Condition 1', enabled=true},
-    {label='Condition 2', enabled=true},
+    {label='Standard', enabled=true},
+    {label='Thumbview', enabled=true},
     # {label='Condition 3', enabled=true}
 ]
 
@@ -36,14 +36,14 @@ PAGE_LIST = [
     # Between participants
     # {conditional_routing=[
     #     {condition=1, page_list=[
-    #         {name='Condition 1 Instructions', path='instructions/condition1'},
-    #         {name='Condition 1 Task', path='task/condition1'},
-    #         {name='Condition 1 Questionnaire', path='questionnaire/condition1'},
+    #         {name='Standard Instructions', path='instructions/standard'},
+    #         {name='Standard Task', path='task/standard'},
+    #         {name='Standard Questionnaire', path='questionnaire/standard'},
     #     ]},
     #     {condition=2, page_list=[
-    #         {name='Condition 2 Instructions', path='instructions/condition2'},
-    #         {name='Condition 2 Task', path='task/condition2'},
-    #         {name='Condition 2 Questionnaire', path='questionnaire/condition2'},
+    #         {name='Thumbview Instructions', path='instructions/thumbview'},
+    #         {name='Thumbview Task', path='task/thumbview'},
+    #         {name='Thumbview Questionnaire', path='questionnaire/thumbview'},
     #     ]},
     #     {condition=3, page_list=[
     #         {name='Condition 3 Instructions', path='instructions/condition3'},
@@ -54,43 +54,43 @@ PAGE_LIST = [
     # Within participants
     {conditional_routing=[
         {condition=1, page_list=[
-            {name='Condition 1 Instructions', path='instructions/condition1'},
-            {name='Condition 1 Task', path='task/condition1'},
-            {name='Condition 1 Questionnaire', path='questionnaire/condition1'},
+            {name='Standard Instructions', path='instructions/standard'},
+            {name='Standard Task', path='task/standard'},
+            {name='Standard Questionnaire', path='questionnaire/standard'},
 
-            {name='Condition 2 Instructions', path='instructions/condition2'},
-            {name='Condition 2 Task', path='task/condition2'},
-            {name='Condition 2 Questionnaire', path='questionnaire/condition2'},
+            {name='Thumbview Instructions', path='instructions/thumbview'},
+            {name='Thumbview Task', path='task/thumbview'},
+            {name='Thumbview Questionnaire', path='questionnaire/thumbview'},
 
             # {name='Condition 3 Instructions', path='instructions/condition3'},
             # {name='Condition 3 Task', path='task/condition3'},
             # {name='Condition 3 Questionnaire', path='questionnaire/condition3'},
         ]},
         {condition=2, page_list=[
-            {name='Condition 2 Instructions', path='instructions/condition2'},
-            {name='Condition 2 Task', path='task/condition2'},
-            {name='Condition 2 Questionnaire', path='questionnaire/condition2'},
+            {name='Thumbview Instructions', path='instructions/thumbview'},
+            {name='Thumbview Task', path='task/thumbview'},
+            {name='Thumbview Questionnaire', path='questionnaire/thumbview'},
 
             # {name='Condition 3 Instructions', path='instructions/condition3'},
             # {name='Condition 3 Task', path='task/condition3'},
             # {name='Condition 3 Questionnaire', path='questionnaire/condition3'},
 
-            {name='Condition 1 Instructions', path='instructions/condition1'},
-            {name='Condition 1 Task', path='task/condition1'},
-            {name='Condition 1 Questionnaire', path='questionnaire/condition1'},
+            {name='Standard Instructions', path='instructions/standard'},
+            {name='Standard Task', path='task/standard'},
+            {name='Standard Questionnaire', path='questionnaire/standard'},
         ]},
         # {condition=3, page_list=[
         #     {name='Condition 3 Instructions', path='instructions/condition3'},
         #     {name='Condition 3 Task', path='task/condition3'},
         #     {name='Condition 3 Questionnaire', path='questionnaire/condition3'},
 
-        #     {name='Condition 1 Instructions', path='instructions/condition1'},
-        #     {name='Condition 1 Task', path='task/condition1'},
-        #     {name='Condition 1 Questionnaire', path='questionnaire/condition1'},
+        #     {name='Standard Instructions', path='instructions/standard'},
+        #     {name='Standard Task', path='task/standard'},
+        #     {name='Standard Questionnaire', path='questionnaire/standard'},
 
-        #     {name='Condition 2 Instructions', path='instructions/condition2'},
-        #     {name='Condition 2 Task', path='task/condition2'},
-        #     {name='Condition 2 Questionnaire', path='questionnaire/condition2'},
+        #     {name='Thumbview Instructions', path='instructions/thumbview'},
+        #     {name='Thumbview Task', path='task/thumbview'},
+        #     {name='Thumbview Questionnaire', path='questionnaire/thumbview'},
         # ]},
     ]},
     {name='Final Questionnaire', path='questionnaire/final'},

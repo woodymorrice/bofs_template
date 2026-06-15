@@ -13,7 +13,7 @@
  *
  *   2. Trial management — switching between the p5 canvas (#study-container)
  *      and the React IDE (#react-container) when the trial begins; ending the
- *      trial when the participant presses Space in Condition 1.
+ *      trial when the participant presses Space in Standard.
  *
  *   3. p5 lifecycle hooks (p.preload, p.setup, p.draw, p.keyPressed,
  *      p.windowResized) — wired into the p5 instance via the sketch function.
@@ -121,14 +121,14 @@ function startTrial() {
 
     window.studyTrialActive = true;
 
-    if (condition_name === "Condition 1") {
+    if (condition_name === "Standard") {
         trialMode = "standard";
         // In standard mode the participant presses Space to end the trial.
         document.addEventListener("keydown", onTrialKeyPress);
         // Hide the p5 canvas and show the React IDE.
         studyContainer.style.display = "none";
         reactContainer.style.display = "block";
-    } else if (condition_name === "Condition 2") {
+    } else if (condition_name === "Thumbview") {
         trialMode = "thumbview";
         // In thumbview mode the trial ends when keyPressed calls
         // setCurrentPhase(Phase.POST_TRIAL) directly — no listener needed.
@@ -156,7 +156,7 @@ function endTrial() {
 // ---------------------------------------------------------------------------
 
 /**
- * Keydown handler registered during standard-mode (Condition 1) trials.
+ * Keydown handler registered during standard-mode (Standard) trials.
  * Pressing Space ends the trial and advances to the POST_TRIAL phase.
  *
  * @param {KeyboardEvent} event
@@ -252,7 +252,7 @@ const sketch = (p) => {
     // keyPressed fires once per key-down event. Handles two keys:
     //   Enter — requests fullscreen and records it in state so views can adjust
     //   Space — advances the phase state machine (except during TRIAL in
-    //           Condition 1, where onTrialKeyPress handles Space instead)
+    //           Standard, where onTrialKeyPress handles Space instead)
     p.keyPressed = function () {
         if (p.key === "Enter") {
             document.documentElement.requestFullscreen();
@@ -291,9 +291,14 @@ const sketch = (p) => {
     //
     // lineFromClick converts the click's y-coordinate (in image-pixel space) to a
     // 1-based line number so the file opens at the clicked location.
+    //
+    // The studyContainer visibility guard is critical: p5 receives mouse events
+    // even when the canvas is hidden behind the React UI. Without it, clicking
+    // inside the React document view would also trigger file navigation.
     p.mouseClicked = function () {
         if (p.mouseButton !== p.LEFT) return;
         if (getCurrentPhase() !== Phase.TRIAL) return;
+        if (studyContainer.style.display === "none") return;
 
         const { overview, tree, layout } = getAssets();
         const widthScale  = p.windowWidth  / overview.width;

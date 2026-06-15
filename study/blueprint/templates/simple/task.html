@@ -4,9 +4,9 @@
     The single task page used for all conditions. It hosts two UI containers:
 
         #study-container — holds the p5 canvas (visible between phases and
-                           during Condition 2 trials)
+                           during Thumbview trials)
         #react-container — holds the VS Code-style React IDE (shown during
-                           Condition 1 trials by startTrial in controller.js)
+                           Standard trials by startTrial in controller.js)
 
     controller.js (p5-ui/) drives all phase transitions and switches which
     container is visible when the trial begins.
@@ -45,7 +45,7 @@
         }
 
         /* #react-container: fixed on top of the canvas; hidden until the trial
-           starts in Condition 1 (startTrial in controller.js sets display: block). */
+           starts in Standard mode (startTrial in controller.js sets display: block). */
         #react-container {
             display: none;
             position: fixed;
@@ -79,7 +79,7 @@
          plain <script> globals — accessible to both controller.js and react-ui.js
          without any import. Must be declared before the module scripts run.
 
-         condition_name — "Condition 1" or "Condition 2"; drives condition-specific
+         condition_name — "Standard" or "Thumbview"; drives condition-specific
                           behaviour in controller.js, react-ui.js, and view.js.
          order_number   — the participant's condition assignment number from BOFS. -->
     <script id="global-variables">
