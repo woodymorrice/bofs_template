@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { nodePositions, findHovered } from '../study/blueprint/static/p5-ui/utils.js';
+import { nodePositions, findHovered, lineFromClick } from '../study/blueprint/static/p5-ui/utils.js';
 
 // ---------------------------------------------------------------------------
 // MARK: Shared fixtures
@@ -171,5 +171,114 @@ describe('findHovered — labelHeight', () => {
         // bottom = top - labelOffset + height = 100 - 10 + 60 = 150
         expect(findHovered(labelLayout, { children: [boltzNode] }, 100, 150)).not.toBeNull();
         expect(findHovered(labelLayout, { children: [boltzNode] }, 100, 151)).toBeNull();
+    });
+});
+
+// ---------------------------------------------------------------------------
+// MARK: findHovered — colIndex and node
+// ---------------------------------------------------------------------------
+
+describe('findHovered — colIndex and node', () => {
+    it('returns colIndex 0 for a single-column boltz node', () => {
+        const result = findHovered(simpleLayout, { children: [boltzNode] }, 100, 130);
+        expect(result.colIndex).toBe(0);
+    });
+
+    it('returns colIndex 0 when the hit is in the first column of a multi-column node', () => {
+        const result = findHovered(simpleLayout, { children: [testNode] }, 100, 130);
+        expect(result.colIndex).toBe(0);
+    });
+
+    it('returns colIndex 1 when the hit is in the second column of a multi-column node', () => {
+        const result = findHovered(simpleLayout, { children: [testNode] }, 350, 220);
+        expect(result.colIndex).toBe(1);
+    });
+
+    it('returns the source node reference as hoverInfo.node', () => {
+        const result = findHovered(simpleLayout, { children: [boltzNode] }, 100, 130);
+        expect(result.node).toBe(boltzNode);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// MARK: lineFromClick — fixtures
+// ---------------------------------------------------------------------------
+
+// Single-column node: top=0, height=100, totalLines=101.
+// One image-pixel per line for easy arithmetic.
+const singleColNode = {
+    name: 'single.py', id: 'single', width: 80,
+    left: 0, top: 0, height: 100,
+    totalLines: 101,
+};
+const singleColHover = { colIndex: 0, top: 0, height: 100 };
+
+// Two-column node: col0 height=60, col1 height=40, totalLines=100.
+// Columns span [0,60) and [60,100) of the virtual line strip.
+const twoColNode = {
+    name: 'two.py', id: 'two', width: 80,
+    left: [0, 200], top: [0, 0], heights: [60, 40],
+    totalLines: 100,
+};
+const twoColHoverCol0 = { colIndex: 0, top: 0, height: 60 };
+const twoColHoverCol1 = { colIndex: 1, top: 0, height: 40 };
+
+// ---------------------------------------------------------------------------
+// MARK: lineFromClick — single column
+// ---------------------------------------------------------------------------
+
+describe('lineFromClick — single column', () => {
+    it('returns line 1 at the top of the file', () => {
+        expect(lineFromClick(singleColNode, singleColHover, 0)).toBe(1);
+    });
+
+    it('returns the last line at the bottom of the file', () => {
+        expect(lineFromClick(singleColNode, singleColHover, 100)).toBe(101);
+    });
+
+    it('returns the middle line at the vertical midpoint', () => {
+        // fraction = 50/100 = 0.5; Math.round(0.5 * 100) + 1 = 51
+        expect(lineFromClick(singleColNode, singleColHover, 50)).toBe(51);
+    });
+
+    it('clamps to line 1 when my is above the file top', () => {
+        expect(lineFromClick(singleColNode, singleColHover, -10)).toBe(1);
+    });
+
+    it('clamps to totalLines when my is below the file bottom', () => {
+        expect(lineFromClick(singleColNode, singleColHover, 200)).toBe(101);
+    });
+
+    it('returns 1 when totalLines is 0', () => {
+        const emptyNode = { left: 0, top: 0, height: 100, totalLines: 0 };
+        expect(lineFromClick(emptyNode, { colIndex: 0, top: 0, height: 100 }, 50)).toBe(1);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// MARK: lineFromClick — multi-column
+// ---------------------------------------------------------------------------
+
+describe('lineFromClick — multi-column', () => {
+    it('returns line 1 at the top of column 0', () => {
+        expect(lineFromClick(twoColNode, twoColHoverCol0, 0)).toBe(1);
+    });
+
+    it('returns the last line at the bottom of the last column', () => {
+        expect(lineFromClick(twoColNode, twoColHoverCol1, 40)).toBe(100);
+    });
+
+    it('bottom of column 0 and top of column 1 give adjacent lines', () => {
+        const bottomCol0 = lineFromClick(twoColNode, twoColHoverCol0, 60);
+        const topCol1    = lineFromClick(twoColNode, twoColHoverCol1, 0);
+        // They should be the same or adjacent (both map to the column boundary)
+        expect(Math.abs(bottomCol0 - topCol1)).toBeLessThanOrEqual(1);
+    });
+
+    it('column 1 mid-point maps to a line past the column 0 count', () => {
+        // col0 covers 60/100 of lines = ~60 lines; col1 mid is at 60+20=80% → line 80
+        const result = lineFromClick(twoColNode, twoColHoverCol1, 20);
+        expect(result).toBeGreaterThan(60);
+        expect(result).toBeLessThanOrEqual(100);
     });
 });

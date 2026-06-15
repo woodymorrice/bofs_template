@@ -21,6 +21,8 @@
  *   4. Input processing — `findHovered()` and `nodePositions()` are imported
  *      from utils.js (pure functions, independently tested). Controller code is
  *      any code that answers "what did the user do?"; view code only draws.
+ *      Mouse click handling (p.mouseClicked) opens the clicked file in the
+ *      React UI by calling window.studyNavigateTo.
  *
  *   5. Per-frame dispatch — reading the current phase and calling the
  *      appropriate draw function from view.js with already-resolved data.
@@ -38,7 +40,7 @@
  */
 
 import { initAssets, getAssets, getState, setState } from "./model.js";
-import { nodePositions, findHovered } from "./utils.js";
+import { nodePositions, findHovered, lineFromClick } from "./utils.js";
 import {
     drawIntroduction,
     drawInstructions,
@@ -274,6 +276,37 @@ const sketch = (p) => {
                 finished = true;
                 window.location.href = "/redirect_next_page";
             }
+        }
+    };
+
+    // -------------------------------------------------------------------------
+    // MARK: p.mouseClicked
+    // -------------------------------------------------------------------------
+
+    // mouseClicked fires after a complete mouse click (press + release). During
+    // the TRIAL phase, a left-click on a hovered file opens it in the React UI
+    // by calling window.studyNavigateTo, which is registered by react-ui.js.
+    // Hit detection is re-run here (not shared with p.draw) to keep the two
+    // callbacks independent — the cost is negligible.
+    //
+    // lineFromClick converts the click's y-coordinate (in image-pixel space) to a
+    // 1-based line number so the file opens at the clicked location.
+    p.mouseClicked = function () {
+        if (p.mouseButton !== p.LEFT) return;
+        if (getCurrentPhase() !== Phase.TRIAL) return;
+
+        const { overview, tree, layout } = getAssets();
+        const widthScale  = p.windowWidth  / overview.width;
+        const heightScale = p.windowHeight / overview.height;
+        const mx = p.mouseX / widthScale;
+        const my = p.mouseY / heightScale;
+        const hoverInfo = findHovered(layout, tree, mx, my);
+
+        if (hoverInfo && window.studyNavigateTo) {
+            // hoverInfo.node is the full leaf node from root.json; it carries
+            // totalLines and all column positions, which lineFromClick needs.
+            const lineNum = lineFromClick(hoverInfo.node, hoverInfo, my);
+            window.studyNavigateTo(hoverInfo.id, lineNum);
         }
     };
 

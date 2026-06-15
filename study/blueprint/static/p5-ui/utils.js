@@ -14,6 +14,7 @@
  * Exports:
  *   nodePositions(node)               — normalises dual-schema node fields to arrays
  *   findHovered(layout, node, mx, my) — returns hovered leaf node info or null
+ *   lineFromClick(node, hoverInfo, my) — maps a click y-coordinate to a 1-based line number
  */
 
 // ---------------------------------------------------------------------------
@@ -66,7 +67,7 @@ export function nodePositions(node) {
  * @param {object} node   - The current node in the root.json tree (start with root).
  * @param {number} mx     - Mouse x in image-pixel space.
  * @param {number} my     - Mouse y in image-pixel space.
- * @returns {{ name: string, id: string, width: number, left: number, top: number, height: number } | null}
+ * @returns {{ name: string, id: string, width: number, left: number, top: number, height: number, colIndex: number, node: object } | null}
  */
 export function findHovered(layout, node, mx, my) {
     // Directory nodes have children — recurse into them and return the first
@@ -94,7 +95,54 @@ export function findHovered(layout, node, mx, my) {
     for (let i = 0; i < lefts.length; i++) {
         if (mx < lefts[i] || mx > lefts[i] + colWidth) continue;
         if (my >= tops[i] && my <= tops[i] - labelOffset + heights[i])
-            return { name: node.name, id: node.id, width: node.width, left: lefts[i], top: tops[i], height: heights[i] };
+            // colIndex and node are included so callers can compute the clicked
+            // line number via lineFromClick without re-searching the tree.
+            return { name: node.name, id: node.id, width: node.width, left: lefts[i], top: tops[i], height: heights[i], colIndex: i, node };
     }
     return null;
+}
+
+// ---------------------------------------------------------------------------
+// MARK: lineFromClick
+// ---------------------------------------------------------------------------
+
+/**
+ * Maps a mouse y-coordinate (in image-pixel space) to a 1-based line number
+ * within the file represented by `node`.
+ *
+ * Files may span multiple layout columns. This function accumulates the heights
+ * of all preceding columns so that clicking at the top of column N gives a
+ * line number just past where column N-1 ended — the columns are treated as a
+ * continuous strip of lines, top to bottom, left to right.
+ *
+ * Clamped to [1, totalLines] so edge-of-file clicks never produce an out-of-
+ * range result.
+ *
+ * @param {object} node      - A leaf node from root.json (type === "TreeFile").
+ *                             Must have `totalLines` or a `lines` array.
+ * @param {object} hoverInfo - Return value of findHovered(); provides `colIndex`
+ *                             (which column was clicked) and `top` (column y).
+ * @param {number} my        - Mouse y in image-pixel space (screen y / heightScale).
+ * @returns {number} 1-based line number.
+ */
+export function lineFromClick(node, hoverInfo, my) {
+    const { tops, heights } = nodePositions(node);
+    const totalLines = node.totalLines || (node.lines && node.lines.length) || 0;
+    if (!totalLines) return 1;
+
+    const totalHeight = heights.reduce((a, b) => a + b, 0);
+    if (!totalHeight) return 1;
+
+    // Sum of heights for all columns before the clicked one. This is the
+    // "virtual y" offset at which the clicked column begins in the continuous
+    // line strip across all columns.
+    const accHeight = heights.slice(0, hoverInfo.colIndex).reduce((a, b) => a + b, 0);
+
+    // Clamp relY to the column's height so clicks exactly on the boundary don't
+    // produce a value outside [0, heights[colIndex]].
+    const relY = Math.max(0, Math.min(my - tops[hoverInfo.colIndex], heights[hoverInfo.colIndex]));
+
+    // Map to [0, 1] across the full file and convert to a 1-based line number.
+    const fraction = (accHeight + relY) / totalHeight;
+    return Math.min(totalLines, Math.max(1, Math.round(fraction * (totalLines - 1)) + 1));
 }

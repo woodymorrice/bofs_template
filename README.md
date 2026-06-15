@@ -253,6 +253,9 @@ export const debugMode = false;
 // Lines of context above and below the target in Condition 2's locked view.
 // Total lines shown = (condition2ContextLines * 2) + 1
 export const condition2ContextLines = 20;
+
+// Where the clicked line sits in the locked view: 0.0=top, 0.5=centre, 1.0=bottom.
+export const condition2ViewportOffset = 0.5;
 ```
 
 **To load a Google Font for code:** add a `<link>` tag in `task.html` and then reference the font name in `codeFont`.
@@ -311,7 +314,7 @@ In Condition 2, the p5 canvas is the primary navigation environment. The React U
 
 When `window.studyNavigateTo` is called (see below), the DocumentView:
 1. Opens the target file
-2. Renders only `condition2ContextLines` lines above and below the target line (default ±20 = 41 lines total)
+2. Renders a window of `2 * condition2ContextLines` lines around the target, positioned so the target sits at `condition2ViewportOffset` within the view (0=top, 0.5=centre, 1=bottom; default 0.5)
 3. Sets `overflow: hidden` — the participant cannot scroll
 4. Flashes the target line with a brief yellow highlight
 
@@ -373,48 +376,42 @@ window.studyNavigateTo(nodeId, lineNum);
 4. Calls `handleGoToLine(lineNum)` — triggers the flash animation on the target line
 5. Switches `#react-container` to visible and `#study-container` to hidden (skipped in debug mode)
 
-### Example: click on a canvas bounding box to navigate
+### Click handler (implemented in controller.js)
+
+`p.mouseClicked` in `p5-ui/controller.js` handles left-clicks during the TRIAL phase. It re-runs `findHovered()` at click time, converts the y-coordinate to a line number via `lineFromClick()`, then calls `window.studyNavigateTo`:
 
 ```js
-// In p5-ui/controller.js, inside the p5 sketch function:
-
-p.mouseClicked = function() {
+p.mouseClicked = function () {
+    if (p.mouseButton !== p.LEFT) return;
     if (getCurrentPhase() !== Phase.TRIAL) return;
 
+    const { overview, tree, layout } = getAssets();
     const widthScale  = p.windowWidth  / overview.width;
     const heightScale = p.windowHeight / overview.height;
-    const hoverInfo = findHovered(
-        layout, tree,
-        p.mouseX / widthScale, p.mouseY / heightScale
-    );
+    const mx = p.mouseX / widthScale;
+    const my = p.mouseY / heightScale;
+    const hoverInfo = findHovered(layout, tree, mx, my);
 
     if (hoverInfo && window.studyNavigateTo) {
-        // lineNum: use the top of the hovered column as an approximation,
-        // or compute from the pixel position within the column.
-        const lineNum = 1; // TODO: compute actual line from y position
+        const lineNum = lineFromClick(hoverInfo.node, hoverInfo, my);
         window.studyNavigateTo(hoverInfo.id, lineNum);
     }
 };
 ```
 
-### Computing the line number from a canvas y-position
+`findHovered` now includes `colIndex` (which column was clicked) and `node` (the full root.json leaf node) in its return value. `lineFromClick` uses these to accumulate column heights and map the y-coordinate proportionally across the entire file.
 
-Each file in `layout.json` stores `top[]` and `heights[]` arrays (one entry per column/chunk). Given a click at canvas-coordinate `(cx, cy)`:
+### Computing the line number from a canvas y-position (`lineFromClick`)
 
-```js
-function getLineAtPoint(fileNode, layoutNode, cx, cy, lineHeight) {
-    for (let col = 0; col < layoutNode.left.length; col++) {
-        if (cx < layoutNode.left[col] || cx > layoutNode.left[col] + layoutNode.width) continue;
-        const relY = cy - layoutNode.top[col];
-        if (relY < 0 || relY > layoutNode.heights[col]) continue;
-        // Each pixel row corresponds to `lineHeight` source lines.
-        // lineHeight comes from layout.json's labelHeight and heightScale.
-        const line = Math.floor(relY / lineHeight) + 1; // 1-based
-        return line;
-    }
-    return 1;
-}
-```
+`lineFromClick(node, hoverInfo, my)` in `p5-ui/utils.js`:
+
+1. Calls `nodePositions(node)` to get `tops[]` and `heights[]` for all columns.
+2. Sums heights before `hoverInfo.colIndex` to get the "virtual y" of the column start.
+3. Adds `relY = my - tops[colIndex]` (offset within the clicked column).
+4. Divides by total height to get a [0, 1] fraction.
+5. Maps the fraction to a 1-based line number clamped to `[1, totalLines]`.
+
+Multi-column files are treated as a continuous strip: the bottom of column N and the top of column N+1 produce the same or adjacent line numbers.
 
 ---
 
@@ -448,6 +445,12 @@ All React components live in a single file: `study/blueprint/static/react-ui.js`
    ```
 
 3. Register a keyboard shortcut in `StudyApp` if needed (follow the Ctrl+Shift+F pattern).
+
+### How syntax highlighting works
+
+Highlighting is done by `splitHighlightedLines(lines, language)` in `react-ui.js`. It highlights the full file as a single string so hljs can track multi-line token state (Python docstrings, block comments, etc.), then splits the HTML output into per-line fragments. Open `<span>` tags are closed at each line boundary and reopened at the start of the next line so each fragment is valid standalone HTML.
+
+The naive alternative — calling `hljs.highlight` once per line — would render interior lines of a docstring as plain text because hljs has no context about preceding lines.
 
 ### Adding a language to syntax highlighting
 

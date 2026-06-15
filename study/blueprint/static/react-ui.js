@@ -48,6 +48,7 @@ import {
     codeLineHeight,
     debugMode,
     condition2ContextLines,
+    condition2ViewportOffset,
 } from "./study-config.js";
 
 const html = htm.bind(React.createElement);
@@ -220,6 +221,71 @@ function getLanguage(filename) {
         yaml: "yaml", yml: "yaml", toml: "ini", txt: "plaintext",
     };
     return map[ext] ?? "plaintext";
+}
+
+// ---------------------------------------------------------------------------
+// MARK: Syntax highlighting utilities
+// ---------------------------------------------------------------------------
+
+/**
+ * splitHighlightedLines — highlights a complete file and splits the result
+ * into per-line HTML strings, preserving multi-line token context.
+ *
+ * The naive approach (highlight each line independently) breaks multi-line
+ * tokens such as Python triple-quoted strings and C-style block comments:
+ * hljs has no context for previous lines, so interior lines are rendered
+ * as plain code rather than as part of the enclosing token.
+ *
+ * This function highlights the full file as a single string, then splits
+ * the resulting HTML at every newline. Because hljs may leave <span> tags
+ * open across a newline boundary, we track the open-span stack and:
+ *   - close all open spans at the end of each line fragment, and
+ *   - reopen them at the start of the next line fragment.
+ * Each returned string is therefore a self-contained valid HTML fragment
+ * that can be safely set as innerHTML.
+ *
+ * @param {string[]} lines    - Array of source-code lines (no trailing newline
+ *                              on each element; joined with "\n" for hljs).
+ * @param {string}   language - highlight.js language id (e.g. "python").
+ * @returns {string[]} Per-line HTML strings, one per input line.
+ */
+function splitHighlightedLines(lines, language) {
+    if (!lines.length) return [];
+
+    const fullHtml = hljs.highlight(lines.join("\n"), { language, ignoreIllegals: true }).value;
+
+    const result   = [];
+    const openTags = [];  // stack of '<span class="...">' strings currently open
+
+    // Split on the literal newline characters that came from lines.join("\n").
+    // Each rawLine is the hljs HTML fragment for one source line.
+    const rawLines = fullHtml.split("\n");
+
+    for (const rawLine of rawLines) {
+        // Start the output fragment by reopening any spans that were left open
+        // by the previous line (these carry multi-line token colour state).
+        let lineHtml = openTags.join("") + rawLine;
+
+        // Walk the raw fragment and update the span stack.
+        // <span ...> pushes, </span> pops. Other tags (none expected from hljs)
+        // are ignored for stack purposes but kept verbatim in the output.
+        const tagRe = /<\/?span[^>]*>/g;
+        let m;
+        while ((m = tagRe.exec(rawLine)) !== null) {
+            if (m[0].startsWith("</")) {
+                openTags.pop();
+            } else {
+                openTags.push(m[0]);
+            }
+        }
+
+        // Close every open span at line end so the fragment is valid HTML.
+        lineHtml += "</span>".repeat(openTags.length);
+
+        result.push(lineHtml);
+    }
+
+    return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -1183,25 +1249,33 @@ function DocumentView({ selectedNode, goToLine, onGoToLineDone, isActive = true,
     const [findCurrentIdx, setFindCurrentIdx] = useState(0);
     const findInputRef = useRef(null);
 
-    // Condition 2 locked view: slice to a window of condition2ContextLines lines
-    // above and below lockedLine. null = show all lines (condition 1 behaviour).
+    // Condition 2 locked view: slice to a window of (2 * condition2ContextLines)
+    // lines around lockedLine, positioned so the clicked line sits at
+    // condition2ViewportOffset within the view (0=top, 0.5=centre, 1=bottom).
+    // null = show all lines (condition 1 behaviour).
     // Line ids (code-line-N) still use the original 1-based file line numbers so
     // go-to-line flash and find scroll both target the correct elements.
     const visibleRange = useMemo(() => {
         if (!isCondition2 || lockedLine == null || !selectedNode?.lines) return null;
         const center = lockedLine - 1; // 0-based
-        const start  = Math.max(0, center - condition2ContextLines);
-        const end    = Math.min(selectedNode.lines.length - 1, center + condition2ContextLines);
+        // Split the total context window according to the viewport offset.
+        // offset=0.5 → equal lines above and below (default centre behaviour).
+        const totalContext = 2 * condition2ContextLines;
+        const linesAbove = Math.round(condition2ViewportOffset * totalContext);
+        const linesBelow = totalContext - linesAbove;
+        const start = Math.max(0, center - linesAbove);
+        const end   = Math.min(selectedNode.lines.length - 1, center + linesBelow);
         return { start, end };
     }, [isCondition2, lockedLine, selectedNode]);
 
     // Syntax-highlighted HTML for each line in the current file.
+    // splitHighlightedLines highlights the entire file at once so that
+    // multi-line tokens (Python docstrings, block comments, etc.) are coloured
+    // correctly across line boundaries.
     const highlightedLines = useMemo(() => {
         if (!selectedNode || !Array.isArray(selectedNode.lines)) return [];
         const lang = getLanguage(selectedNode.name);
-        return selectedNode.lines.map(line =>
-            hljs.highlight(line, { language: lang, ignoreIllegals: true }).value
-        );
+        return splitHighlightedLines(selectedNode.lines, lang);
     }, [selectedNode]);
 
     // Flat list of every find match across all lines: { lineIdx, start, end }.

@@ -94,3 +94,17 @@ export const debugMode = false;
  * Increase for more surrounding context; decrease for a tighter focus.
  */
 export const condition2ContextLines = 20;
+
+/**
+ * Where the clicked line appears within the locked document view in Condition 2.
+ * A fraction from 0.0 (top of the view) to 1.0 (bottom of the view).
+ *
+ * 0.5 (default) — clicked line is vertically centred.
+ * 0.0           — clicked line appears at the top; all context lines are below.
+ * 1.0           — clicked line appears at the bottom; all context lines are above.
+ *
+ * When the clicked line is near the start or end of the file, the view is
+ * clamped to the file boundaries, so the offset is honoured as closely as
+ * possible without showing lines outside the file.
+ */
+export const condition2ViewportOffset = 0.5;

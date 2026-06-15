@@ -212,11 +212,15 @@ Node coordinates in `root.json` are in **image-pixel space** (scaled by `widthSc
 - Condition 1: hides `#study-container`, shows `#react-container` (React IDE takes over)
 - Condition 2: hides `#react-container`, shows `#study-container` (canvas remains)
 
+In Condition 2, left-clicking a hovered file in the canvas calls `window.studyNavigateTo(nodeId, lineNum)`, which opens the file in the React UI and switches the visible container. `p.mouseClicked` in `controller.js` handles this; hit detection is re-run at click time using `findHovered()`, and the click y-coordinate is converted to a 1-based line number via `lineFromClick()` (both in `utils.js`). `lineFromClick` accumulates column heights so that multi-column files map continuously from top of column 0 to bottom of the last column.
+
 ### React UI (react-ui.js)
 
 Single-file, no build step. Uses `htm` tagged template literals as JSX substitute. Key exported surface:
 
 - `window.studyNavigateTo(nodeId, lineNum)` — called by the p5 canvas when a user clicks a file; opens the file in React, locks the view to `±condition2ContextLines` lines around `lineNum`, flashes the target line, and switches the container to the React IDE (unless `debugMode` is true)
+
+Syntax highlighting uses `splitHighlightedLines(lines, language)` which highlights the full file at once (not line by line) so multi-line tokens like Python docstrings and block comments render correctly. The HTML output is split back into per-line fragments while tracking open `<span>` tags across line boundaries.
 
 All feature flags (split pane, search, command palette, etc.) respect `condition_name` and `debugMode` from `study-config.js`.
 
@@ -244,6 +248,7 @@ Single source of truth for all front-end configuration. Edit here only; all othe
 | `codeLineHeight` | Line height multiplier |
 | `debugMode` | Enable all features regardless of condition; **must be `false` for participants** |
 | `condition2ContextLines` | Lines above/below target in locked view (default 20) |
+| `condition2ViewportOffset` | Where the clicked line sits in the locked view: 0.0=top, 0.5=centre, 1.0=bottom (default 0.5) |
 
 ## Dataset format
 
