@@ -57,7 +57,7 @@ const html = htm.bind(React.createElement);
 // ---------------------------------------------------------------------------
 
 // JSON endpoint for the file tree. The dataset folder is set in study-config.js.
-const TREE_URL = `/blueprint/${dataset}/root.json`;
+const TREE_URL = `/blueprint/datasets/${dataset}/root.json`;
 
 /**
  * ACTIVITY_ITEMS — drives both the ActivityBar icon strip and the Sidebar panel

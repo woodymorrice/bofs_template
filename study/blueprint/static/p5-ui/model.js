@@ -57,9 +57,9 @@ let _state = {
  * @param {object} p - The p5 instance (passed in from controller.js).
  */
 export function initAssets(p) {
-    _assets.overview = p.loadImage(`/blueprint/${dataset}/overview.png`);
-    _assets.tree     = p.loadJSON(`/blueprint/${dataset}/root.json`);
-    _assets.layout   = p.loadJSON(`/blueprint/${dataset}/layout.json`);
+    _assets.overview = p.loadImage(`/blueprint/datasets/${dataset}/overview.png`);
+    _assets.tree     = p.loadJSON(`/blueprint/datasets/${dataset}/root.json`);
+    _assets.layout   = p.loadJSON(`/blueprint/datasets/${dataset}/layout.json`);
 }
 
 // ---------------------------------------------------------------------------

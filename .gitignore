@@ -1,4 +1,4 @@
 study/blueprint/__pycache__/views.cpython-313.pyc
 study/study.db
-study/blueprint/static/test
-study/blueprint/static/boltz
+study/blueprint/static/datasets/
+node_modules/

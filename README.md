@@ -20,7 +20,8 @@ A within-subjects HCI study platform for comparing code navigation techniques. C
 12. [Task Phases](#12-task-phases)
 13. [Questionnaires](#13-questionnaires)
 14. [Participant Data and Admin](#14-participant-data-and-admin)
-15. [Common Tasks Checklist](#15-common-tasks-checklist)
+15. [Testing](#15-testing)
+16. [Common Tasks Checklist](#16-common-tasks-checklist)
 
 ---
 
@@ -72,15 +73,19 @@ interfile_study/
         │       └── condition2.html         # Condition 2 instructions
         └── static/
             ├── study-config.js             # *** YOUR MAIN CONFIGURATION FILE ***
-            ├── react-app.js                # VS Code-style React UI (all components)
-            ├── main.js                     # p5.js sketch (spatial overview)
-            ├── phaseManager.js             # Trial phase state machine
-            ├── trialManager.js             # Switches between p5 canvas and React UI
-            ├── p5.min.js                   # p5.js library (bundled)
-            └── <dataset>/                  # One folder per dataset, e.g. boltz/
-                ├── root.json               # File tree with source lines
-                ├── layout.json             # Spatial positions for the p5 canvas
-                └── overview.png            # Full-codebase overview image
+            ├── react-ui.js                 # VS Code-style React UI (all components)
+            ├── p5-ui/                      # p5.js spatial canvas (pseudo-MVC)
+            │   ├── controller.js           # p5 entry point, phases, trial management
+            │   ├── model.js                # Loaded assets and mutable state
+            │   ├── view.js                 # Pure draw functions per phase
+            │   └── utils.js                # Pure utilities: hit detection, schema normalisation
+            ├── vendor/
+            │   └── p5.min.js              # p5.js library (bundled, do not edit)
+            └── datasets/                   # One folder per dataset (gitignored — files are large)
+                └── boltz/                  # Example: AlphaFold Boltz codebase
+                    ├── root.json           # File tree with source lines
+                    ├── layout.json         # Spatial positions for the p5 canvas
+                    └── overview.png        # Full-codebase overview image
 ```
 
 The dataset folder name is configured in `study-config.js` via `export const dataset = "boltz"`.
@@ -137,13 +142,13 @@ BOFS assigns participants to conditions in a balanced way. The `label` values he
 | Document view scrolling | Free | Locked to navigated location |
 | Canvas right-click toggle | Only after trial starts | Only after trial starts |
 
-The `window.condition_name` global (injected by the server from `views.py`) drives the condition logic in `react-app.js`. `study-config.js`'s `debugMode` flag overrides it during development.
+The `window.condition_name` global (injected by the server from `views.py`) drives the condition logic in `react-ui.js`. `study-config.js`'s `debugMode` flag overrides it during development.
 
 ---
 
 ## 5. Dataset Format
 
-A dataset is a folder inside `study/blueprint/static/<dataset>/` containing three files.
+A dataset is a folder inside `study/blueprint/static/datasets/<dataset>/` containing three files.
 
 ### root.json
 
@@ -215,7 +220,7 @@ A pre-rendered image of the entire codebase as it would appear on the canvas. Th
 
 ### Switching datasets
 
-1. Create `study/blueprint/static/<yourname>/` and put `root.json`, `layout.json`, and `overview.png` in it.
+1. Create `study/blueprint/static/datasets/<yourname>/` and put `root.json`, `layout.json`, and `overview.png` in it.
 2. Open `study-config.js` and change `export const dataset = "yourname";`.
 3. That's it — both the React UI and the p5 canvas will load from the new folder.
 
@@ -223,7 +228,7 @@ A pre-rendered image of the entire codebase as it would appear on the canvas. Th
 
 ## 6. Configuration Reference (study-config.js)
 
-`study/blueprint/static/study-config.js` is the single file you need to edit for most visual and behavioral configuration. It exports named constants imported by both `react-app.js` and `main.js`.
+`study/blueprint/static/study-config.js` is the single file you need to edit for most visual and behavioral configuration. It exports named constants imported by both `react-ui.js` and `p5-ui/controller.js`.
 
 ```js
 // Which dataset folder to load (relative to /blueprint/)
@@ -314,7 +319,7 @@ To navigate to a different location, the participant must right-click to return 
 
 ### Returning to the canvas
 
-The right-click toggle is registered in `setupCanvasToggle()` in `react-app.js`. It swaps `display` between `#react-container` and `#study-container`. It only activates while `window.studyTrialActive` is true (set by `trialManager.js` when the trial begins, or immediately if `debugMode = true`).
+The right-click toggle is registered in `setupCanvasToggle()` in `react-ui.js`. It swaps `display` between `#react-container` and `#study-container`. It only activates while `window.studyTrialActive` is true (set by `controller.js` when the trial begins, or immediately if `debugMode = true`).
 
 ---
 
@@ -345,12 +350,12 @@ window.studyNavigateTo("main.py", null);
 
 ## 10. Wiring the p5 Canvas (Condition 2)
 
-The p5 sketch in `main.js` needs to call `window.studyNavigateTo(nodeId, lineNum)` when the participant selects a file location in the canvas.
+The p5 sketch in `p5-ui/controller.js` needs to call `window.studyNavigateTo(nodeId, lineNum)` when the participant selects a file location in the canvas.
 
 ### The interface
 
 ```js
-// Defined and registered by StudyApp in react-app.js on mount.
+// Defined and registered by StudyApp in react-ui.js on mount.
 // Safe to call at any time after the React app loads.
 window.studyNavigateTo(nodeId, lineNum);
 ```
@@ -360,7 +365,7 @@ window.studyNavigateTo(nodeId, lineNum);
 | `nodeId` | `string` | The `id` field from the node in `root.json` |
 | `lineNum` | `number \| null` | 1-based line number to lock to, or `null` to just open the file |
 
-### What it does (inside react-app.js)
+### What it does (inside react-ui.js)
 
 1. Finds the node in the loaded file tree by `id`
 2. Calls `openFile(node)` — opens the file in the left pane
@@ -371,23 +376,23 @@ window.studyNavigateTo(nodeId, lineNum);
 ### Example: click on a canvas bounding box to navigate
 
 ```js
-// In main.js, inside your p5 mouseClicked or mousePressed handler:
+// In p5-ui/controller.js, inside the p5 sketch function:
 
 p.mouseClicked = function() {
     if (getCurrentPhase() !== Phase.TRIAL) return;
 
     const widthScale  = p.windowWidth  / overview.width;
     const heightScale = p.windowHeight / overview.height;
-    const [hoveredNode, hoveredIndex] = findHovered(
+    const hoverInfo = findHovered(
         layout, tree,
         p.mouseX / widthScale, p.mouseY / heightScale
     );
 
-    if (hoveredNode && window.studyNavigateTo) {
+    if (hoverInfo && window.studyNavigateTo) {
         // lineNum: use the top of the hovered column as an approximation,
         // or compute from the pixel position within the column.
         const lineNum = 1; // TODO: compute actual line from y position
-        window.studyNavigateTo(hoveredNode.id, lineNum);
+        window.studyNavigateTo(hoverInfo.id, lineNum);
     }
 };
 ```
@@ -415,7 +420,7 @@ function getLineAtPoint(fileNode, layoutNode, cx, cy, lineHeight) {
 
 ## 11. Modifying the React UI
 
-All React components live in a single file: `study/blueprint/static/react-app.js`.
+All React components live in a single file: `study/blueprint/static/react-ui.js`.
 
 ### Key constraints
 
@@ -427,7 +432,7 @@ All React components live in a single file: `study/blueprint/static/react-app.js
 
 ### Adding a new activity panel (sidebar tab)
 
-1. Add an entry to `ACTIVITY_ITEMS` in `react-app.js`:
+1. Add an entry to `ACTIVITY_ITEMS` in `react-ui.js`:
    ```js
    { id: "My Panel (Ctrl+Shift+M)", icon: "grid", disabled: false },
    ```
@@ -446,7 +451,7 @@ All React components live in a single file: `study/blueprint/static/react-app.js
 
 ### Adding a language to syntax highlighting
 
-In `getLanguage()` near the top of `react-app.js`:
+In `getLanguage()` near the top of `react-ui.js`:
 
 ```js
 const map = {
@@ -465,14 +470,14 @@ For themes in the `base16/` family, use a forward slash: `"base16/gruvbox-dark-h
 
 ### Adding menu items to TopNav
 
-In the `TopNav` component, append inside the first `NavbarGroup`:
+In the `TopNav` component in `react-ui.js`, append inside the first `NavbarGroup`:
 ```js
 <${Button} minimal text="MyMenu" onClick=${...} />
 ```
 
 ### Changing what the empty document pane says
 
-In `DocumentView`, find the `NonIdealState` block. The `description` prop is already condition-aware — edit both strings there.
+In `DocumentView` in `react-ui.js`, find the `NonIdealState` block. The `description` prop is already condition-aware — edit both strings there.
 
 ### Modifying the find/search behavior
 
@@ -484,21 +489,21 @@ In `DocumentView`, find the `NonIdealState` block. The `description` prop is alr
 
 ## 12. Task Phases
 
-`phaseManager.js` manages a simple state machine that drives the p5 sketch. The React UI is independent of phases — it activates when `trialManager.js` calls `startTrial()`.
+`p5-ui/controller.js` manages a simple phase state machine that drives the p5 sketch. The React UI is independent of phases — it activates when `startTrial()` in `controller.js` is called.
 
 | Phase | What happens |
 |---|---|
 | `INTRODUCTION` | Red screen; press Enter to go fullscreen |
 | `INSTRUCTIONS` | Red screen; press Space to advance |
 | `PRE_TRIAL` | Red screen; press Space to start the trial |
-| `TRIAL` | `trialManager.startTrial()` fires; switches to condition-appropriate view |
+| `TRIAL` | `startTrial()` fires; switches to condition-appropriate view |
 | `POST_TRIAL` | Red screen; press Space to finish and redirect |
 
-**To customize each phase:** edit the `drawIntroduction`, `drawInstructions`, `drawPreTrial`, `drawTrial`, and `drawPostTrial` functions in `main.js`.
+**To customize each phase:** edit the `drawIntroduction`, `drawInstructions`, `drawPreTrial`, `drawTrial`, and `drawPostTrial` functions in `p5-ui/view.js`.
 
-**To end the trial and advance:** in `drawTrial`, when the participant completes the task, call `setCurrentPhase(Phase.POST_TRIAL)` (or have them press Space, which is the current default in `trialManager.js`).
+**To end the trial and advance:** in `controller.js`, when the participant completes the task, call `setCurrentPhase(Phase.POST_TRIAL)` (or have them press Space, which is the current default).
 
-The `drawTrial` function receives `overview`, `layout`, and `tree` — use these to implement the spatial overview UI for Condition 2.
+The `drawTrial` function in `view.js` receives `overview`, `layout`, and `hoverInfo` — use these to implement the spatial overview UI for Condition 2.
 
 ---
 
@@ -541,6 +546,30 @@ The `id` field becomes the column name in the response database.
 
 ---
 
+## 15. Testing
+
+### Python (pytest)
+
+```bash
+pip install pytest
+pytest -v               # run all tests
+pytest tests/test_X.py  # run a single file
+```
+
+### JavaScript (Vitest)
+
+```bash
+npm install        # first time only — installs Vitest
+npm test           # run all JS tests once
+npm run test:watch # re-run on file save
+```
+
+JavaScript tests live in `tests/`, named `<module>.test.js`. Currently only `p5-ui/utils.js` is covered (`nodePositions` and `findHovered`). Functions in `controller.js` that use the DOM or p5 instance cannot be tested without a browser; for `react-ui.js`, end-to-end browser testing (e.g. Playwright) is more appropriate than unit tests.
+
+When adding new canvas utility functions that have no browser or p5 dependency, put them in `p5-ui/utils.js` and add tests in `tests/utils.test.js`.
+
+---
+
 ## 14. Participant Data and Admin
 
 ### Admin panel
@@ -561,7 +590,7 @@ From the admin panel, use the Download button to export CSV. Column names match 
 
 ---
 
-## 15. Common Tasks Checklist
+## 16. Common Tasks Checklist
 
 ### Before running participants
 
@@ -576,7 +605,7 @@ From the admin panel, use the Download button to export CSV. Column names match 
 
 ### Switching to a new dataset
 
-- [ ] Create `study/blueprint/static/<name>/` with `root.json`, `layout.json`, `overview.png`
+- [ ] Create `study/blueprint/static/datasets/<name>/` with `root.json`, `layout.json`, `overview.png`
 - [ ] Change `dataset = "<name>"` in `study-config.js`
 - [ ] Reload the page and confirm the file tree loads
 - [ ] Test that `window.studyNavigateTo` works for a node id from the new `root.json`
@@ -588,7 +617,7 @@ From the admin panel, use the Download button to export CSV. Column names match 
 - [ ] Add `questionnaires/condition3.json`
 - [ ] Add `templates/instructions/condition3.html`
 - [ ] Add a route in `views.py` (`/task/condition3` → `task("Condition 3")`)
-- [ ] Handle `window.condition_name === "Condition 3"` in `react-app.js` if the new condition needs different UI behaviour
+- [ ] Handle `window.condition_name === "Condition 3"` in `react-ui.js` if the new condition needs different UI behaviour
 
 ### Deploying for remote participants
 

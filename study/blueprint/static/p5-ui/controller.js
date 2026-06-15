@@ -18,9 +18,9 @@
  *   3. p5 lifecycle hooks (p.preload, p.setup, p.draw, p.keyPressed,
  *      p.windowResized) — wired into the p5 instance via the sketch function.
  *
- *   4. Input processing — interpreting keyboard and mouse input against the
- *      loaded model data (findHovered, nodePositions). Controller code is any
- *      code that answers "what did the user do?"; view code only draws.
+ *   4. Input processing — `findHovered()` and `nodePositions()` are imported
+ *      from utils.js (pure functions, independently tested). Controller code is
+ *      any code that answers "what did the user do?"; view code only draws.
  *
  *   5. Per-frame dispatch — reading the current phase and calling the
  *      appropriate draw function from view.js with already-resolved data.
@@ -32,11 +32,13 @@
  *   global scope with p5's names, required when multiple scripts share the page.
  *
  * Imports:
- *   model.js — initAssets, getAssets, getState, setState
- *   view.js  — one draw function per phase
+ *   model.js  — initAssets, getAssets, getState, setState
+ *   view.js   — one draw function per phase
+ *   utils.js  — nodePositions, findHovered
  */
 
 import { initAssets, getAssets, getState, setState } from "./model.js";
+import { nodePositions, findHovered } from "./utils.js";
 import {
     drawIntroduction,
     drawInstructions,
@@ -162,89 +164,6 @@ function onTrialKeyPress(event) {
         endTrial();
         setCurrentPhase(Phase.POST_TRIAL);
     }
-}
-
-// ---------------------------------------------------------------------------
-// MARK: nodePositions
-// ---------------------------------------------------------------------------
-
-/**
- * Normalises the per-column position fields of a leaf node from root.json,
- * handling the two dataset schemas:
- *
- *   boltz schema — scalar fields: node.left (number), node.top (number),
- *                  node.height (number)
- *   test schema  — array fields:  node.left (number[]), node.top (number[]),
- *                  node.heights (number[])
- *
- * Returns all three as arrays so the rest of the code can always iterate
- * them the same way regardless of which dataset is active.
- *
- * @param {object} node - A leaf node from root.json (type === "TreeFile").
- * @returns {{ lefts: number[], tops: number[], heights: number[] }}
- */
-function nodePositions(node) {
-    const lefts   = Array.isArray(node.left)    ? node.left    : [node.left];
-    const tops    = Array.isArray(node.top)      ? node.top     : [node.top];
-    // Note: boltz uses "height" (singular), test dataset uses "heights" (plural).
-    const heights = Array.isArray(node.heights)  ? node.heights : [node.height];
-    return { lefts, tops, heights };
-}
-
-// ---------------------------------------------------------------------------
-// MARK: findHovered
-// ---------------------------------------------------------------------------
-
-/**
- * Recursively searches the root.json tree to find the leaf node (file) whose
- * bounding box contains the point (mx, my) in image-pixel space.
- *
- * Coordinates are in image-pixel space (not screen pixels). The caller must
- * convert screen mouse coordinates before passing them:
- *   mx = p.mouseX / widthScale
- *   my = p.mouseY / heightScale
- *
- * Hit area width is layout.widestWidth (the full column width) rather than
- * node.width, so the entire column is interactive — not just the narrower
- * individual file width.
- *
- * Returns a flat object so view.js receives clean data with no schema
- * knowledge required. Returns null if the mouse is not over any file.
- *
- * @param {object} layout - The parsed layout.json object.
- * @param {object} node   - The current node in the root.json tree.
- * @param {number} mx     - Mouse x in image-pixel space.
- * @param {number} my     - Mouse y in image-pixel space.
- * @returns {{ name, id, width, left, top, height } | null}
- */
-function findHovered(layout, node, mx, my) {
-    // Directory nodes have children — recurse into them and return the first
-    // leaf match found. Leaf nodes (files) have no children property.
-    if (node.children) {
-        for (let child of node.children) {
-            let result = findHovered(layout, child, mx, my);
-            if (result) return result;
-        }
-        return null;
-    }
-
-    const { lefts, tops, heights } = nodePositions(node);
-
-    // labelOffset accounts for the filename label drawn above each file block.
-    // It is subtracted from the top so the hit area includes the label.
-    const labelOffset = layout.labelHeight * layout.heightScale;
-
-    // Use widestWidth (full column width) rather than node.width so the entire
-    // column area is hoverable, not just the narrower individual file bounding box.
-    const colWidth = layout.widestWidth * layout.widthScale;
-
-    // A file may span multiple columns; check each column occurrence.
-    for (let i = 0; i < lefts.length; i++) {
-        if (mx < lefts[i] || mx > lefts[i] + colWidth) continue;
-        if (my >= tops[i] && my <= tops[i] - labelOffset + heights[i])
-            return { name: node.name, id: node.id, width: node.width, left: lefts[i], top: tops[i], height: heights[i] };
-    }
-    return null;
 }
 
 // ---------------------------------------------------------------------------

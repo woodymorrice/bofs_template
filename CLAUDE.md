@@ -85,15 +85,41 @@ Every file should be navigable by scanning its MARK comments alone.
 
 ## Testing
 
-There are currently no automated tests. When adding new features, write tests for the new behaviour. Tests live in `tests/`, named `test_<module>.py`. All tests must pass before every commit.
+All tests must pass before every commit.
+
+### Python (pytest)
 
 ```bash
 pip install pytest
-pytest -v              # run all tests
-pytest tests/test_X.py # run a single file
+pytest -v               # run all tests
+pytest tests/test_X.py  # run a single file
 ```
 
-**What to test:** Python-side logic (Flask routes, any helper functions); complex JavaScript logic should be tested when a test runner is available. Prefer integration tests over mocks at system boundaries. If adding a test runner for JS, document it here.
+Python test files live in `tests/`, named `test_<module>.py`.
+
+### JavaScript (Vitest)
+
+`package.json` at the project root is the npm dependency manifest. Running `npm install` with no arguments reads it and installs everything listed — there is nothing else to configure.
+
+Current npm dependencies (all `devDependencies` — nothing is needed at runtime):
+
+| Package | Purpose |
+|---|---|
+| `vitest` | JS test runner |
+
+The study's runtime JS (React 18, BlueprintJS, p5.js, htm, highlight.js) is loaded from CDN URLs at runtime and does **not** go in `package.json`.
+
+```bash
+npm install          # install all packages from package.json (first time, or after adding a new dep)
+npm test             # run all JS tests once
+npm run test:watch   # re-run on file changes
+```
+
+JavaScript test files live in `tests/`, named `<module>.test.js`. Vitest is configured in `vitest.config.js` at the project root.
+
+**What can be tested:** only pure functions with no browser globals or p5 dependency. Currently that means `p5-ui/utils.js` (`nodePositions`, `findHovered`). Functions in `controller.js` that touch the DOM or p5 instance cannot be imported without mocking; `react-ui.js` imports React from CDN URLs, so unit-testing it requires heavy mocking — end-to-end browser testing (e.g. Playwright) is more appropriate for that file.
+
+**What to test when adding new code:** any canvas utility function with no browser globals or p5 dependency belongs in `p5-ui/utils.js` and must have corresponding tests in `tests/utils.test.js`. Leave browser-coupled code in `controller.js` or `react-ui.js` and test it manually or via an end-to-end runner.
 
 ## Architecture
 
@@ -108,16 +134,18 @@ study/
     static/
       study-config.js            # All UI/appearance constants (single source of truth)
       p5-ui/                     # p5.js spatial canvas — pseudo-MVC
-        controller.js            # Controller + entry point (phases, trial mgmt, hit detection)
+        controller.js            # Controller + entry point (phases, trial mgmt)
         model.js                 # Assets + mutable state (loaded via p.preload)
         view.js                  # Pure draw functions (no schema knowledge)
+        utils.js                 # Pure utilities: nodePositions, findHovered (tested)
       react-ui.js                # Monolithic VS Code IDE React component
       vendor/
         p5.min.js                # p5.js library (third-party, do not edit)
-      boltz/                     # Example dataset
-        root.json                # File tree with source lines and pixel dimensions
-        layout.json              # Spatial positions for each node
-        overview.png             # Pre-rendered canvas image (3840×2160)
+      datasets/                  # One folder per study dataset (gitignored — files are large)
+        boltz/                   # Example dataset (AlphaFold Boltz codebase)
+          root.json              # File tree with source lines and pixel dimensions
+          layout.json            # Spatial positions for each node
+          overview.png           # Pre-rendered canvas image (3840×2160)
     questionnaires/
       demographics.json
       condition1.json
@@ -142,7 +170,8 @@ The phase state machine lives in `controller.js` and defines five ordered phases
 p5.js does not use pub/sub. The pseudo-MVC maps as follows:
 
 - **Model** (`p5-ui/model.js`): loaded assets (`overview`, `tree`, `layout`) and mutable state (`fullscreen`). `initAssets(p)` is called from `p.preload`; all other modules read via `getAssets()` / `getState()`.
-- **Controller** (`p5-ui/controller.js`): the p5 sketch function plus the phase state machine and trial management. Owns the per-frame dispatch (`p.draw`), input handling (`p.keyPressed`), and all logic that interprets input against the model — including `findHovered()` (hit detection) and `nodePositions()` (schema normalizer).
+- **Controller** (`p5-ui/controller.js`): the p5 sketch function plus the phase state machine and trial management. Owns the per-frame dispatch (`p.draw`), input handling (`p.keyPressed`), and all logic that interprets input against the model. Calls `findHovered()` and `nodePositions()` imported from `utils.js`.
+- **Utilities** (`p5-ui/utils.js`): pure functions with no browser or p5 dependency — `nodePositions()` (dual-schema normaliser) and `findHovered()` (recursive hit detection). **Any new canvas utility function that has no browser globals or p5 dependency must go here**, not in `controller.js`, so it can be tested by Vitest without mocking p5.
 - **View** (`p5-ui/view.js`): pure draw functions. Receive already-resolved, flat data from the controller. No schema knowledge, no hit-testing. Signature: `drawTrial(p, overview, layout, hoverInfo)`.
 
 **Rule:** if code reads model data to answer "what did the user do?", it belongs in the controller. If it only draws to the canvas, it belongs in a view.
@@ -156,7 +185,7 @@ p5.js does not use pub/sub. The pseudo-MVC maps as follows:
 | boltz | scalar (`number`) | `height` | — |
 | test | array (`number[]`) | — | `heights` |
 
-`nodePositions(node)` in `p5-ui/controller.js` normalizes both to arrays before use. Any new code that reads per-column node fields must go through `nodePositions()`.
+`nodePositions(node)` in `p5-ui/utils.js` normalizes both to arrays before use. Any new code that reads per-column node fields must go through `nodePositions()`.
 
 ### Coordinate spaces
 
@@ -218,7 +247,7 @@ Single source of truth for all front-end configuration. Edit here only; all othe
 
 ## Dataset format
 
-Each dataset lives in `study/blueprint/static/<dataset>/` and contains three files:
+Each dataset lives in `study/blueprint/static/datasets/<dataset>/` and contains three files:
 
 **root.json** — nested file tree. Leaf nodes (files) must have:
 ```json
@@ -255,7 +284,9 @@ JSON files in `study/blueprint/questionnaires/`. BOFS renders them automatically
 
 ## Committing changes
 
-Before committing:
+**Do not create commits unless the user explicitly says to commit.** Wait for the instruction — do not commit after completing a task, do not offer to commit, and do not prepare a commit message speculatively.
+
+When the user does say to commit, before committing:
 
 1. Run all tests: `pytest -v` — fix failures before proceeding
 2. Review the full diff
